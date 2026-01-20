@@ -1,0 +1,181 @@
+.stats-panel {
+  width: 320px;
+  background: white;
+  padding: 20px;
+  overflow-y: auto;
+  box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+}
+
+.stats-panel h2 {
+  color: #2c3e50;
+  margin-bottom: 20px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid #3498db;
+  font-size: 1.3rem;
+}
+
+.stats-section {
+  margin-bottom: 25px;
+}
+
+.stats-section h3 {
+  color: #7f8c8d;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 15px;
+}
+
+/* Stat Cards */
+.stat-card {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 15px;
+  background: #f8f9fa;
+  border-radius: 10px;
+  margin-bottom: 10px;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.stat-card:hover {
+  transform: translateX(5px);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+}
+
+.stat-icon {
+  font-size: 1.8rem;
+}
+
+.stat-content {
+  display: flex;
+  flex-direction: column;
+}
+
+.stat-value {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #2c3e50;
+}
+
+.stat-value.budget {
+  font-size: 1rem;
+}
+
+.stat-label {
+  font-size: 0.8rem;
+  color: #7f8c8d;
+}
+
+/* Progress Bar */
+.progress-container {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.progress-bar {
+  flex: 1;
+  height: 20px;
+  background: #ecf0f1;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #27ae60, #2ecc71);
+  border-radius: 10px;
+  transition: width 0.5s ease;
+}
+
+.progress-text {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #27ae60;
+  min-width: 50px;
+}
+
+/* Status List */
+.status-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.status-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 15px;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+
+.status-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+
+.status-dot.nouveau {
+  background: #e74c3c;
+}
+
+.status-dot.en-cours {
+  background: #f39c12;
+}
+
+.status-dot.termine {
+  background: #27ae60;
+}
+
+.status-name {
+  flex: 1;
+  color: #2c3e50;
+  font-weight: 500;
+}
+
+.status-count {
+  font-weight: 700;
+  color: #3498db;
+  background: #e8f4fc;
+  padding: 4px 12px;
+  border-radius: 15px;
+  font-size: 0.9rem;
+}
+
+/* Loading & Error */
+.stats-loading, .stats-error {
+  padding: 30px;
+  text-align: center;
+  color: #7f8c8d;
+}
+
+/* Responsive */
+@media (max-width: 900px) {
+  .stats-panel {
+    width: 100%;
+    max-height: 200px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 15px;
+  }
+  
+  .stats-panel h2 {
+    width: 100%;
+    margin-bottom: 10px;
+    font-size: 1.1rem;
+  }
+  
+  .stats-section {
+    flex: 1;
+    min-width: 150px;
+    margin-bottom: 0;
+  }
+  
+  .stat-card {
+    padding: 10px;
+  }
+}
