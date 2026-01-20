@@ -41,6 +41,12 @@
   border: 1px solid rgba(255, 255, 255, 0.4);
 }
 
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
 .filter-select {
   padding: 10px 15px;
   border-radius: 8px;
@@ -49,6 +55,21 @@
   background: rgba(255, 255, 255, 0.9);
   cursor: pointer;
   min-width: 180px;
+}
+
+.btn-manager {
+  padding: 10px 20px;
+  background: #e74c3c;
+  color: white;
+  text-decoration: none;
+  border-radius: 8px;
+  font-weight: 600;
+  transition: all 0.3s;
+}
+
+.btn-manager:hover {
+  background: #c0392b;
+  transform: translateY(-2px);
 }
 
 /* Main Container */
@@ -69,9 +90,104 @@
   height: 100%;
 }
 
-/* Custom Marker */
-.custom-marker {
+/* Custom Marker Icon */
+.custom-marker-icon {
   transition: transform 0.2s ease;
+}
+
+.custom-marker-icon:hover {
+  transform: scale(1.1);
+}
+
+/* Popup Styles */
+.marker-popup {
+  padding: 5px;
+  min-width: 280px;
+}
+
+.popup-header {
+  margin-bottom: 10px;
+}
+
+.popup-status {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 15px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.popup-status.status-nouveau {
+  background: #fdeaea;
+  color: #c0392b;
+}
+
+.popup-status.status-en-cours {
+  background: #fef5e7;
+  color: #d68910;
+}
+
+.popup-status.status-termine {
+  background: #e8f8f5;
+  color: #1e8449;
+}
+
+.popup-title {
+  font-size: 1rem;
+  color: #2c3e50;
+  margin: 8px 0;
+  font-weight: 600;
+}
+
+.popup-desc {
+  color: #666;
+  font-size: 0.85rem;
+  margin-bottom: 12px;
+  line-height: 1.4;
+}
+
+.popup-info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.popup-info-item {
+  background: #f8f9fa;
+  padding: 8px 10px;
+  border-radius: 6px;
+}
+
+.popup-label {
+  display: block;
+  font-size: 0.7rem;
+  color: #7f8c8d;
+  margin-bottom: 2px;
+}
+
+.popup-value {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #2c3e50;
+}
+
+/* MapLibre Popup Override */
+.maplibregl-popup-content {
+  padding: 15px;
+  border-radius: 12px;
+  box-shadow: 0 5px 25px rgba(0,0,0,0.2);
+}
+
+.maplibregl-popup-close-button {
+  font-size: 20px;
+  padding: 5px 10px;
+  color: #666;
+}
+
+.maplibregl-popup-close-button:hover {
+  background: #f0f0f0;
+  color: #333;
 }
 
 /* Loading Overlay */
@@ -118,6 +234,11 @@
   
   .header-left {
     flex-direction: column;
+  }
+  
+  .header-right {
+    flex-wrap: wrap;
+    justify-content: center;
   }
   
   .header h1 {

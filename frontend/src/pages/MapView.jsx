@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { signalementService } from '../services/signalement.api'
 import StatsPanel from '../components/StatsPanel'
-import SignalementPopup from '../components/SignalementPopup'
 import Legend from '../components/Legend'
 import './MapView.css'
 
@@ -11,16 +10,72 @@ const MapView = () => {
   const [signalements, setSignalements] = useState([])
   const [stats, setStats] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [selectedSignalement, setSelectedSignalement] = useState(null)
   const [filterStatut, setFilterStatut] = useState('TOUS')
   const [mapLoaded, setMapLoaded] = useState(false)
   const markersRef = useRef([])
+  const popupRef = useRef(null)
 
-  // Couleurs par statut
-  const statusColors = {
-    'NOUVEAU': '#e74c3c',
-    'EN_COURS': '#f39c12',
-    'TERMINE': '#27ae60'
+  // Icônes SVG par type de problème
+  const getMarkerIcon = (statut) => {
+    const icons = {
+      'NOUVEAU': `
+        <svg width="40" height="50" viewBox="0 0 40 50" xmlns="http://www.w3.org/2000/svg">
+          <path d="M20 0 C31 0 40 9 40 20 C40 35 20 50 20 50 C20 50 0 35 0 20 C0 9 9 0 20 0Z" fill="#e74c3c"/>
+          <circle cx="20" cy="20" r="12" fill="white"/>
+          <text x="20" y="25" text-anchor="middle" font-size="16" font-weight="bold" fill="#e74c3c">!</text>
+        </svg>
+      `,
+      'EN_COURS': `
+        <svg width="40" height="50" viewBox="0 0 40 50" xmlns="http://www.w3.org/2000/svg">
+          <path d="M20 0 C31 0 40 9 40 20 C40 35 20 50 20 50 C20 50 0 35 0 20 C0 9 9 0 20 0Z" fill="#f39c12"/>
+          <circle cx="20" cy="20" r="12" fill="white"/>
+          <path d="M14 20 L18 20 L18 14 L22 14 L22 20 L26 20 L20 26 Z" fill="#f39c12"/>
+        </svg>
+      `,
+      'TERMINE': `
+        <svg width="40" height="50" viewBox="0 0 40 50" xmlns="http://www.w3.org/2000/svg">
+          <path d="M20 0 C31 0 40 9 40 20 C40 35 20 50 20 50 C20 50 0 35 0 20 C0 9 9 0 20 0Z" fill="#27ae60"/>
+          <circle cx="20" cy="20" r="12" fill="white"/>
+          <path d="M14 20 L18 24 L26 16" stroke="#27ae60" stroke-width="3" fill="none" stroke-linecap="round"/>
+        </svg>
+      `
+    }
+    return icons[statut] || icons['NOUVEAU']
+  }
+
+  const formatBudget = (budget) => {
+    if (!budget) return 'Non défini'
+    return new Intl.NumberFormat('fr-MG', {
+      style: 'currency',
+      currency: 'MGA',
+      maximumFractionDigits: 0
+    }).format(budget)
+  }
+
+  const formatDate = (dateStr) => {
+    return new Date(dateStr).toLocaleDateString('fr-FR', {
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric'
+    })
+  }
+
+  const getStatusLabel = (statut) => {
+    const labels = {
+      'NOUVEAU': 'Nouveau',
+      'EN_COURS': 'En cours',
+      'TERMINE': 'Terminé'
+    }
+    return labels[statut] || statut
+  }
+
+  const getStatusClass = (statut) => {
+    const classes = {
+      'NOUVEAU': 'status-nouveau',
+      'EN_COURS': 'status-en-cours',
+      'TERMINE': 'status-termine'
+    }
+    return classes[statut] || ''
   }
 
   // Charger les données
@@ -70,8 +125,8 @@ const MapView = () => {
           }
         ]
       },
-      center: [47.5079, -18.8792], // Antananarivo
-      zoom: 13
+      center: [47.5079, -18.8792],
+      zoom: 14
     })
 
     map.current.addControl(new window.maplibregl.NavigationControl(), 'top-right')
@@ -91,6 +146,11 @@ const MapView = () => {
     markersRef.current.forEach(marker => marker.remove())
     markersRef.current = []
 
+    // Supprimer popup existante
+    if (popupRef.current) {
+      popupRef.current.remove()
+    }
+
     // Filtrer les signalements
     const filteredSignalements = filterStatut === 'TOUS' 
       ? signalements 
@@ -99,28 +159,58 @@ const MapView = () => {
     // Ajouter les nouveaux marqueurs
     filteredSignalements.forEach(signalement => {
       const el = document.createElement('div')
-      el.className = 'custom-marker'
-      el.style.backgroundColor = statusColors[signalement.statut] || '#999'
-      el.style.width = '24px'
-      el.style.height = '24px'
-      el.style.borderRadius = '50%'
-      el.style.border = '3px solid white'
-      el.style.boxShadow = '0 2px 6px rgba(0,0,0,0.3)'
+      el.className = 'custom-marker-icon'
+      el.innerHTML = getMarkerIcon(signalement.statut)
       el.style.cursor = 'pointer'
+      el.style.width = '40px'
+      el.style.height = '50px'
 
-      el.addEventListener('click', () => {
-        setSelectedSignalement(signalement)
-      })
+      // Popup HTML avec infos détaillées
+      const popupHTML = `
+        <div class="marker-popup">
+          <div class="popup-header">
+            <span class="popup-status ${getStatusClass(signalement.statut)}">${getStatusLabel(signalement.statut)}</span>
+          </div>
+          <h3 class="popup-title">${signalement.titre}</h3>
+          ${signalement.description ? `<p class="popup-desc">${signalement.description}</p>` : ''}
+          <div class="popup-info-grid">
+            <div class="popup-info-item">
+              <span class="popup-label">📅 Date</span>
+              <span class="popup-value">${formatDate(signalement.date_creation)}</span>
+            </div>
+            <div class="popup-info-item">
+              <span class="popup-label">📐 Surface</span>
+              <span class="popup-value">${signalement.surface_m2 ? signalement.surface_m2 + ' m²' : 'Non définie'}</span>
+            </div>
+            <div class="popup-info-item">
+              <span class="popup-label">💰 Budget</span>
+              <span class="popup-value">${formatBudget(signalement.budget)}</span>
+            </div>
+            <div class="popup-info-item">
+              <span class="popup-label">🏢 Entreprise</span>
+              <span class="popup-value">${signalement.entreprise || 'Non assignée'}</span>
+            </div>
+          </div>
+        </div>
+      `
 
+      const popup = new window.maplibregl.Popup({
+        offset: [0, -40],
+        closeButton: true,
+        closeOnClick: false,
+        maxWidth: '320px'
+      }).setHTML(popupHTML)
+
+      // Afficher popup au survol
       el.addEventListener('mouseenter', () => {
-        el.style.transform = 'scale(1.2)'
+        if (popupRef.current) {
+          popupRef.current.remove()
+        }
+        popup.setLngLat([signalement.longitude, signalement.latitude]).addTo(map.current)
+        popupRef.current = popup
       })
 
-      el.addEventListener('mouseleave', () => {
-        el.style.transform = 'scale(1)'
-      })
-
-      const marker = new window.maplibregl.Marker({ element: el })
+      const marker = new window.maplibregl.Marker({ element: el, anchor: 'bottom' })
         .setLngLat([signalement.longitude, signalement.latitude])
         .addTo(map.current)
       
@@ -128,15 +218,6 @@ const MapView = () => {
     })
 
   }, [signalements, filterStatut, mapLoaded])
-
-  const formatBudget = (budget) => {
-    if (!budget) return 'Non défini'
-    return new Intl.NumberFormat('fr-MG', {
-      style: 'currency',
-      currency: 'MGA',
-      maximumFractionDigits: 0
-    }).format(budget)
-  }
 
   return (
     <div className="map-view">
@@ -157,6 +238,9 @@ const MapView = () => {
             <option value="EN_COURS">🟡 En cours</option>
             <option value="TERMINE">🟢 Terminé</option>
           </select>
+          <a href="/manager" className="btn-manager">
+            ⚙️ Manager
+          </a>
         </div>
       </header>
 
@@ -170,18 +254,9 @@ const MapView = () => {
           <div ref={mapContainer} className="map" />
           
           {/* Légende */}
-          <Legend statusColors={statusColors} />
+          <Legend />
         </div>
       </div>
-
-      {/* Popup signalement */}
-      {selectedSignalement && (
-        <SignalementPopup 
-          signalement={selectedSignalement}
-          onClose={() => setSelectedSignalement(null)}
-          formatBudget={formatBudget}
-        />
-      )}
 
       {/* Loading overlay */}
       {loading && (
