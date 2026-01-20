@@ -1,0 +1,61 @@
+services:
+  # Frontend React
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: frontend-app
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./src:/app/src
+      - ./public:/app/public
+      - ./index.html:/app/index.html
+      - ./vite.config.js:/app/vite.config.js
+    environment:
+      - VITE_API_URL=http://localhost:3000
+    depends_on:
+      - identity-provider
+    restart: unless-stopped
+
+  # Base de données PostgreSQL
+  postgres:
+    image: postgres:15-alpine
+    container_name: identity-provider-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres123
+      POSTGRES_DB: identity_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ../identity-provider/init.sql:/docker-entrypoint-initdb.d/init.sql
+    restart: unless-stopped
+
+  # API Identity Provider
+  identity-provider:
+    build:
+      context: ../identity-provider
+      dockerfile: Dockerfile
+    container_name: identity-provider-api
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+      - JWT_SECRET=votre_secret_jwt_super_securise_2024
+      - JWT_EXPIRES_IN=24h
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres123
+      - DB_NAME=identity_db
+    volumes:
+      - ../identity-provider/src:/app/src
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
