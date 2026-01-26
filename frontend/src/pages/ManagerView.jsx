@@ -12,7 +12,7 @@ const ManagerView = () => {
   const [editMode, setEditMode] = useState(false);
   const [editData, setEditData] = useState({});
 
-  const statusOptions = ['nouveau', 'en_cours', 'termine'];
+  const statusOptions = ['NOUVEAU', 'EN_COURS', 'TERMINE'];
 
   useEffect(() => {
     loadSignalements();
@@ -49,9 +49,9 @@ const ManagerView = () => {
     setEditData({
       description: signalement.description,
       statut: signalement.statut,
-      surface: signalement.surface || '',
+      surface_m2: signalement.surface_m2 || '',
       budget: signalement.budget || '',
-      nom_entreprise: signalement.nom_entreprise || ''
+      entreprise: signalement.entreprise || ''
     });
     setEditMode(true);
   };
@@ -85,14 +85,14 @@ const ManagerView = () => {
 
   const getStatusBadge = (statut) => {
     const classes = {
-      'nouveau': 'status-nouveau',
-      'en_cours': 'status-en-cours',
-      'termine': 'status-termine'
+      'NOUVEAU': 'status-nouveau',
+      'EN_COURS': 'status-en-cours',
+      'TERMINE': 'status-termine'
     };
     const labels = {
-      'nouveau': 'Nouveau',
-      'en_cours': 'En cours',
-      'termine': 'Terminé'
+      'NOUVEAU': 'Nouveau',
+      'EN_COURS': 'En cours',
+      'TERMINE': 'Terminé'
     };
     return <span className={`status-badge ${classes[statut] || ''}`}>{labels[statut] || statut}</span>;
   };
@@ -127,7 +127,7 @@ const ManagerView = () => {
       <header className="manager-header">
         <div className="header-left">
           <h1>🛠️ Interface Manager</h1>
-          <span className="badge manager">Administrateur</span>
+          <span className="badge">Manager</span>
         </div>
         <div className="header-right">
           <Link to="/" className="btn-back">
@@ -155,9 +155,9 @@ const ManagerView = () => {
               className="filter-select"
             >
               <option value="all">Tous les statuts</option>
-              <option value="nouveau">Nouveau</option>
-              <option value="en_cours">En cours</option>
-              <option value="termine">Terminé</option>
+              <option value="NOUVEAU">Nouveau</option>
+              <option value="EN_COURS">En cours</option>
+              <option value="TERMINE">Terminé</option>
             </select>
           </div>
           
@@ -207,7 +207,7 @@ const ManagerView = () => {
                   >
                     {statusOptions.map(opt => (
                       <option key={opt} value={opt}>
-                        {opt === 'nouveau' ? 'Nouveau' : opt === 'en_cours' ? 'En cours' : 'Terminé'}
+                        {opt === 'NOUVEAU' ? 'Nouveau' : opt === 'EN_COURS' ? 'En cours' : 'Terminé'}
                       </option>
                     ))}
                   </select>
@@ -218,15 +218,15 @@ const ManagerView = () => {
                     <label>Surface (m²)</label>
                     <input
                       type="number"
-                      value={editData.surface}
-                      onChange={(e) => setEditData({...editData, surface: e.target.value})}
+                      value={editData.surface_m2 || ''}
+                      onChange={(e) => setEditData({...editData, surface_m2: e.target.value})}
                     />
                   </div>
                   <div className="form-group">
                     <label>Budget (Ar)</label>
                     <input
                       type="number"
-                      value={editData.budget}
+                      value={editData.budget || ''}
                       onChange={(e) => setEditData({...editData, budget: e.target.value})}
                     />
                   </div>
@@ -236,8 +236,8 @@ const ManagerView = () => {
                   <label>Entreprise assignée</label>
                   <input
                     type="text"
-                    value={editData.nom_entreprise}
-                    onChange={(e) => setEditData({...editData, nom_entreprise: e.target.value})}
+                    value={editData.entreprise || ''}
+                    onChange={(e) => setEditData({...editData, entreprise: e.target.value})}
                     placeholder="Nom de l'entreprise"
                   />
                 </div>
@@ -275,11 +275,11 @@ const ManagerView = () => {
                 <div className="detail-grid">
                   <div className="detail-item">
                     <span className="label">📅 Date signalement</span>
-                    <span className="value">{formatDate(selectedSignalement.date_signalement)}</span>
+                    <span className="value">{formatDate(selectedSignalement.date_creation)}</span>
                   </div>
                   <div className="detail-item">
                     <span className="label">📐 Surface</span>
-                    <span className="value">{selectedSignalement.surface ? `${selectedSignalement.surface} m²` : 'Non défini'}</span>
+                    <span className="value">{selectedSignalement.surface_m2 ? `${selectedSignalement.surface_m2} m²` : 'Non défini'}</span>
                   </div>
                   <div className="detail-item">
                     <span className="label">💰 Budget</span>
@@ -287,7 +287,7 @@ const ManagerView = () => {
                   </div>
                   <div className="detail-item">
                     <span className="label">🏢 Entreprise</span>
-                    <span className="value">{selectedSignalement.nom_entreprise || 'Non assigné'}</span>
+                    <span className="value">{selectedSignalement.entreprise || 'Non assigné'}</span>
                   </div>
                 </div>
 

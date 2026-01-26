@@ -15,31 +15,31 @@ export const signalementService = {
   getAll: async (statut = null) => {
     const params = statut ? { statut } : {}
     const response = await api.get('/api/signalements', { params })
-    return response.data
+    return response.data.signalements || response.data
   },
 
   // Récupérer les statistiques
   getStats: async () => {
     const response = await api.get('/api/signalements/stats')
-    return response.data
+    return response.data.stats || response.data
   },
 
   // Récupérer un signalement par ID
   getById: async (id) => {
     const response = await api.get(`/api/signalements/${id}`)
-    return response.data
+    return response.data.signalement || response.data
   },
 
   // Créer un signalement
   create: async (data) => {
     const response = await api.post('/api/signalements', data)
-    return response.data
+    return response.data.signalement || response.data
   },
 
   // Mettre à jour un signalement
   update: async (id, data) => {
     const response = await api.put(`/api/signalements/${id}`, data)
-    return response.data
+    return response.data.signalement || response.data
   },
 
   // Supprimer un signalement

@@ -86,8 +86,8 @@ const MapView = () => {
           signalementService.getAll(),
           signalementService.getStats()
         ])
-        setSignalements(signalementsData.signalements || [])
-        setStats(statsData.stats)
+        setSignalements(Array.isArray(signalementsData) ? signalementsData : [])
+        setStats(statsData)
       } catch (error) {
         console.error('Erreur chargement données:', error)
       } finally {
