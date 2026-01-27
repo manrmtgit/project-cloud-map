@@ -28,7 +28,7 @@ const Login = () => {
 
     try {
       await login(formData)
-      navigate('/dashboard')
+      navigate('/')  // Rediriger vers la carte après connexion
     } catch (err) {
       setError(err.message)
     } finally {

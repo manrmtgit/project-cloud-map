@@ -41,10 +41,27 @@
   border: 1px solid rgba(255, 255, 255, 0.4);
 }
 
+.badge.user {
+  background: rgba(46, 204, 113, 0.3);
+  border: 1px solid rgba(46, 204, 113, 0.6);
+}
+
+.badge.manager {
+  background: rgba(241, 196, 15, 0.3);
+  border: 1px solid rgba(241, 196, 15, 0.6);
+}
+
 .header-right {
   display: flex;
   align-items: center;
-  gap: 15px;
+  gap: 12px;
+}
+
+.user-name {
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  font-size: 0.9rem;
 }
 
 .filter-select {
@@ -59,7 +76,7 @@
 
 .btn-manager {
   padding: 10px 20px;
-  background: #e74c3c;
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
   color: white;
   text-decoration: none;
   border-radius: 8px;
@@ -68,6 +85,52 @@
 }
 
 .btn-manager:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(245, 87, 108, 0.4);
+}
+
+.btn-profile {
+  padding: 10px 20px;
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  text-decoration: none;
+  border-radius: 8px;
+  font-weight: 600;
+  transition: all 0.3s;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.btn-profile:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.btn-login {
+  padding: 10px 20px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  text-decoration: none;
+  border-radius: 8px;
+  font-weight: 600;
+  transition: all 0.3s;
+}
+
+.btn-login:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+}
+
+.btn-logout {
+  padding: 10px 20px;
+  background: #e74c3c;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.btn-logout:hover {
   background: #c0392b;
   transform: translateY(-2px);
 }

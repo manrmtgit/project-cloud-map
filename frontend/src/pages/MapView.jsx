@@ -1,10 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext'
 import { signalementService } from '../services/signalement.api'
 import StatsPanel from '../components/StatsPanel'
 import Legend from '../components/Legend'
 import './MapView.css'
 
 const MapView = () => {
+  const { user, logout } = useAuth()
+  const navigate = useNavigate()
   const mapContainer = useRef(null)
   const map = useRef(null)
   const [signalements, setSignalements] = useState([])
@@ -14,6 +18,14 @@ const MapView = () => {
   const [mapLoaded, setMapLoaded] = useState(false)
   const markersRef = useRef([])
   const popupRef = useRef(null)
+
+  // Vérifier si l'utilisateur est manager
+  const isManager = user?.role === 'manager' || user?.email === 'manager@cloudmap.local'
+
+  const handleLogout = () => {
+    logout()
+    navigate('/')
+  }
 
   // Icônes SVG par type de problème
   const getMarkerIcon = (statut) => {
@@ -225,7 +237,13 @@ const MapView = () => {
       <header className="header">
         <div className="header-left">
           <h1>🛣️ Signalement Routier - Antananarivo</h1>
-          <span className="badge visitor">Mode Visiteur</span>
+          {user ? (
+            <span className={`badge ${isManager ? 'manager' : 'user'}`}>
+              {isManager ? '👔 Manager' : '👤 Utilisateur'}
+            </span>
+          ) : (
+            <span className="badge visitor">🌍 Mode Visiteur</span>
+          )}
         </div>
         <div className="header-right">
           <select 
@@ -238,9 +256,27 @@ const MapView = () => {
             <option value="EN_COURS">🟡 En cours</option>
             <option value="TERMINE">🟢 Terminé</option>
           </select>
-          <a href="/manager" className="btn-manager">
-            ⚙️ Manager
-          </a>
+          
+          {user ? (
+            <>
+              <span className="user-name">👤 {user.name || user.email}</span>
+              {isManager && (
+                <Link to="/dashboard" className="btn-manager">
+                  📊 Dashboard
+                </Link>
+              )}
+              <Link to="/profile" className="btn-profile">
+                ⚙️ Profil
+              </Link>
+              <button onClick={handleLogout} className="btn-logout">
+                🚪 Déconnexion
+              </button>
+            </>
+          ) : (
+            <Link to="/login" className="btn-login">
+              🔐 Se connecter
+            </Link>
+          )}
         </div>
       </header>
 
