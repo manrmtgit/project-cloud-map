@@ -8,6 +8,7 @@ const { testConnection } = require('./config/database');
 // Import des routes
 const authRoutes = require('./routes/auth.routes');
 const userRoutes = require('./routes/user.routes');
+const signalementRoutes = require('./routes/signalement.routes');
 
 // Import des middlewares
 const errorHandler = require('./middlewares/errorHandler');
@@ -23,6 +24,7 @@ app.use(express.urlencoded({ extended: true }));
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/signalements', signalementRoutes);
 
 // Route de base
 app.get('/', (req, res) => {

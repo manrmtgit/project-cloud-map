@@ -39,12 +39,12 @@ api.interceptors.response.use(
 // Services d'authentification
 export const authService = {
   register: async (userData) => {
-    const response = await api.post('/auth/register', userData)
+    const response = await api.post('/api/auth/register', userData)
     return response.data
   },
 
   login: async (credentials) => {
-    const response = await api.post('/auth/login', credentials)
+    const response = await api.post('/api/auth/login', credentials)
     if (response.data.token) {
       localStorage.setItem('token', response.data.token)
       localStorage.setItem('user', JSON.stringify(response.data.user))
@@ -58,12 +58,12 @@ export const authService = {
   },
 
   verify: async () => {
-    const response = await api.get('/auth/verify')
+    const response = await api.get('/api/auth/verify')
     return response.data
   },
 
   refreshToken: async () => {
-    const response = await api.post('/auth/refresh')
+    const response = await api.post('/api/auth/refresh')
     if (response.data.token) {
       localStorage.setItem('token', response.data.token)
     }
@@ -74,22 +74,22 @@ export const authService = {
 // Services utilisateur
 export const userService = {
   getProfile: async () => {
-    const response = await api.get('/users/profile')
+    const response = await api.get('/api/users/profile')
     return response.data
   },
 
   updateProfile: async (userData) => {
-    const response = await api.put('/users/profile', userData)
+    const response = await api.put('/api/users/profile', userData)
     return response.data
   },
 
   deleteAccount: async () => {
-    const response = await api.delete('/users/profile')
+    const response = await api.delete('/api/users/profile')
     return response.data
   },
 
   getAllUsers: async () => {
-    const response = await api.get('/users')
+    const response = await api.get('/api/users')
     return response.data
   }
 }
