@@ -5,13 +5,10 @@ import {
   push,
   set,
   onValue,
-  update,
-  storage,
-  storageRef,
-  uploadBytes,
-  getDownloadURL
+  update
 } from '@/config/firebase';
 import type { Signalement, CreateSignalementData, SignalementStats } from '@/models';
+import { localStorageService } from './localStorageService';
 
 // Service Firebase pour les signalements
 export const firebaseService = {
@@ -83,41 +80,40 @@ export const firebaseService = {
     }
   },
 
-  // Upload d'une photo
-  async uploadPhoto(file: Blob, signalementId: string): Promise<string> {
+  // Upload d'une photo - Stockage local avec IndexedDB
+  async uploadPhoto(dataUrl: string, signalementId: string): Promise<string> {
     try {
-      const photoRef = storageRef(storage, `signalements/${signalementId}/${Date.now()}.jpg`);
-      await uploadBytes(photoRef, file);
-      const downloadURL = await getDownloadURL(photoRef);
-      return downloadURL;
+      // Sauvegarder localement
+      await localStorageService.init();
+      const photoId = await localStorageService.savePhoto(signalementId, dataUrl);
+
+      // Retourner le dataUrl directement pour affichage
+      return dataUrl;
     } catch (error) {
-      console.error('Erreur lors de l\'upload de la photo:', error);
+      console.error('Erreur lors de la sauvegarde de la photo:', error);
       throw error;
     }
   },
 
-  // Upload de plusieurs photos
-  async uploadMultiplePhotos(files: Blob[], signalementId: string): Promise<string[]> {
+  // Upload de plusieurs photos - Stockage local avec IndexedDB
+  async uploadMultiplePhotos(dataUrls: string[], signalementId: string): Promise<string[]> {
     try {
-      const uploadPromises = files.map(async (file, index) => {
-        const photoRef = storageRef(storage, `signalements/${signalementId}/${Date.now()}_${index}.jpg`);
-        await uploadBytes(photoRef, file);
-        return await getDownloadURL(photoRef);
-      });
+      await localStorageService.init();
 
-      const urls = await Promise.all(uploadPromises);
+      // Sauvegarder toutes les photos localement
+      await localStorageService.saveMultiplePhotos(signalementId, dataUrls);
 
-      // Mettre à jour le signalement avec les URLs des photos
+      // Mettre à jour le signalement avec les dataUrls des photos
       const signalementRefToUpdate = ref(database, `signalements/${signalementId}`);
       await update(signalementRefToUpdate, {
-        photos: urls,
-        photo_url: urls[0], // La première photo comme photo principale
+        photos: dataUrls,
+        photo_url: dataUrls[0], // La première photo comme photo principale
         date_modification: new Date().toISOString()
       });
 
-      return urls;
+      return dataUrls;
     } catch (error) {
-      console.error('Erreur lors de l\'upload des photos:', error);
+      console.error('Erreur lors de la sauvegarde des photos:', error);
       throw error;
     }
   },

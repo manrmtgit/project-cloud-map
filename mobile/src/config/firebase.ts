@@ -1,7 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getDatabase, ref, push, set, onValue, update, query, orderByChild, equalTo, get } from 'firebase/database';
-import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 // Configuration Firebase - Remplacer par vos clés
 const firebaseConfig = {
@@ -18,7 +17,6 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const database = getDatabase(app);
-const storage = getStorage(app);
 
 // Références de base de données
 export const signalementRef = ref(database, 'signalements');
@@ -29,7 +27,6 @@ export {
   app,
   auth,
   database,
-  storage,
   ref,
   push,
   set,
@@ -38,10 +35,7 @@ export {
   update,
   query,
   orderByChild,
-  equalTo,
-  storageRef,
-  uploadBytes,
-  getDownloadURL
+  equalTo
 };
 
 export default app;

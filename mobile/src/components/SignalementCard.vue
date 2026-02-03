@@ -85,7 +85,7 @@ const formattedDate = computed(() =>
 .card-title {
   font-size: 16px;
   font-weight: 600;
-  color: #111827;
+  color: #000000;
   margin: 0 0 4px 0;
   white-space: nowrap;
   overflow: hidden;
@@ -94,7 +94,7 @@ const formattedDate = computed(() =>
 
 .card-description {
   font-size: 13px;
-  color: #6B7280;
+  color: #374151;
   margin: 0 0 8px 0;
   line-height: 1.4;
 }
@@ -112,7 +112,7 @@ const formattedDate = computed(() =>
 }
 
 .card-date {
-  color: #9CA3AF;
+  color: #6B7280;
 }
 
 .card-arrow {
