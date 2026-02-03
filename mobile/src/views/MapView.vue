@@ -336,18 +336,15 @@ const confirmPlacing = () => {
 };
 
 // Créer le signalement
-const handleCreateSignalement = async (data: CreateSignalementData & { photoBlob?: Blob }) => {
-  const {photoBlob, ...signalementData} = data;
+const handleCreateSignalement = async (data: CreateSignalementData & { photoDataUrls?: string[] }) => {
+  const {photoDataUrls, ...signalementData} = data;
 
   const signalement = await signalementsStore.createSignalement(signalementData);
 
   if (signalement) {
-    // Upload de la photo si présente
-    if (photoBlob) {
-      const photoUrl = await signalementsStore.uploadPhoto(photoBlob, signalement.id);
-      if (photoUrl) {
-        // La mise à jour avec la photo sera faite via Firebase
-      }
+    // Sauvegarder les photos localement si présentes
+    if (photoDataUrls && photoDataUrls.length > 0) {
+      await signalementsStore.uploadMultiplePhotos(photoDataUrls, signalement.id);
     }
 
     showCreateModal.value = false;
@@ -560,14 +557,102 @@ ion-chip {
 
 .search-result-item span {
   font-size: 14px;
-  color: #374151;
+  color: #000000;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-/* Fix Leaflet icons */
+/* ================================= */
+/* FIX LEAFLET - VERY IMPORTANT */
+/* ================================= */
+
+/* Remove default Leaflet icon background */
 :deep(.leaflet-default-icon-path) {
-  background-image: none;
+  background-image: none !important;
+}
+
+/* Custom marker styles */
+:deep(.signalement-marker-icon) {
+  background: none !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+:deep(.signalement-marker-icon > div) {
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+:deep(.user-location-marker-icon) {
+  background: none !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+:deep(.placing-marker) {
+  background: none !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* Fix z-index for proper layering */
+:deep(.leaflet-pane) {
+  z-index: 400;
+}
+
+:deep(.leaflet-tile-pane) {
+  z-index: 200;
+}
+
+:deep(.leaflet-overlay-pane) {
+  z-index: 400;
+}
+
+:deep(.leaflet-shadow-pane) {
+  z-index: 500;
+}
+
+:deep(.leaflet-marker-pane) {
+  z-index: 600;
+}
+
+:deep(.leaflet-tooltip-pane) {
+  z-index: 650;
+}
+
+:deep(.leaflet-popup-pane) {
+  z-index: 700;
+}
+
+/* Ensure markers are clickable and visible */
+:deep(.leaflet-marker-icon) {
+  background: transparent !important;
+  border: none !important;
+  pointer-events: auto !important;
+}
+
+/* Map container full size */
+:deep(.leaflet-container) {
+  width: 100% !important;
+  height: 100% !important;
+  background: #e8e8e8;
+  font-family: inherit;
+}
+
+/* Fix for map tiles loading */
+:deep(.leaflet-tile) {
+  filter: none;
+}
+
+:deep(.leaflet-tile-container) {
+  pointer-events: none;
+}
+
+/* Ensure attribution is visible but not blocking */
+:deep(.leaflet-control-attribution) {
+  font-size: 10px;
+  background: rgba(255, 255, 255, 0.8);
+  padding: 2px 5px;
 }
 </style>

@@ -98,23 +98,23 @@ export const useSignalementsStore = defineStore('signalements', {
     },
 
     // Uploader une photo et obtenir l'URL
-    async uploadPhoto(file: Blob, signalementId: string): Promise<string | null> {
+    async uploadPhoto(dataUrl: string, signalementId: string): Promise<string | null> {
       try {
-        const url = await firebaseService.uploadPhoto(file, signalementId);
+        const url = await firebaseService.uploadPhoto(dataUrl, signalementId);
         return url;
       } catch (error: any) {
-        this.error = error.message || 'Erreur lors de l\'upload de la photo';
+        this.error = error.message || 'Erreur lors de la sauvegarde de la photo';
         return null;
       }
     },
 
     // Uploader plusieurs photos
-    async uploadMultiplePhotos(files: Blob[], signalementId: string): Promise<string[] | null> {
+    async uploadMultiplePhotos(dataUrls: string[], signalementId: string): Promise<string[] | null> {
       try {
-        const urls = await firebaseService.uploadMultiplePhotos(files, signalementId);
+        const urls = await firebaseService.uploadMultiplePhotos(dataUrls, signalementId);
         return urls;
       } catch (error: any) {
-        this.error = error.message || 'Erreur lors de l\'upload des photos';
+        this.error = error.message || 'Erreur lors de la sauvegarde des photos';
         return null;
       }
     },

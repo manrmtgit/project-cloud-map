@@ -149,7 +149,6 @@ const emit = defineEmits(['close', 'submit']);
 
 const loading = ref(false);
 const photoPreviews = ref<string[]>([]);
-const photoBlobs = ref<Blob[]>([]);
 const showPhotoOptions = ref(false);
 
 const form = ref({
@@ -205,7 +204,6 @@ watch(() => props.isOpen, (newVal) => {
     };
     errors.value = {titre: '', description: ''};
     photoPreviews.value = [];
-    photoBlobs.value = [];
   }
 });
 
@@ -244,10 +242,6 @@ const takePhoto = async () => {
 
     if (image.dataUrl) {
       photoPreviews.value.push(image.dataUrl);
-      // Convertir en Blob pour l'upload
-      const response = await fetch(image.dataUrl);
-      const blob = await response.blob();
-      photoBlobs.value.push(blob);
     }
   } catch (error) {
     console.error('Erreur lors de la prise de photo:', error);
@@ -268,9 +262,6 @@ const pickPhoto = async () => {
 
     if (image.dataUrl) {
       photoPreviews.value.push(image.dataUrl);
-      const response = await fetch(image.dataUrl);
-      const blob = await response.blob();
-      photoBlobs.value.push(blob);
     }
   } catch (error) {
     console.error('Erreur lors de la sélection de photo:', error);
@@ -280,7 +271,6 @@ const pickPhoto = async () => {
 // Supprimer une photo
 const removePhoto = (index: number) => {
   photoPreviews.value.splice(index, 1);
-  photoBlobs.value.splice(index, 1);
 };
 
 // Fermer le modal
@@ -292,7 +282,7 @@ const handleDismiss = () => {
 const handleSubmit = () => {
   if (!isFormValid.value || !props.location) return;
 
-  const data: CreateSignalementData & { photoBlobs?: Blob[] } = {
+  const data: CreateSignalementData & { photoDataUrls?: string[] } = {
     titre: form.value.titre.trim(),
     type: form.value.type,
     description: form.value.description.trim(),
@@ -300,8 +290,8 @@ const handleSubmit = () => {
     longitude: props.location.lng
   };
 
-  if (photoBlobs.value.length > 0) {
-    data.photoBlobs = photoBlobs.value;
+  if (photoPreviews.value.length > 0) {
+    data.photoDataUrls = photoPreviews.value;
   }
 
   emit('submit', data);
@@ -316,11 +306,13 @@ const handleSubmit = () => {
 ion-toolbar {
   --background: white;
   --border-color: #E5E7EB;
+  --color: #000000;
 }
 
 ion-title {
   font-size: 17px;
   font-weight: 600;
+  color: #000000;
 }
 
 ion-buttons ion-button {
@@ -337,7 +329,7 @@ ion-buttons ion-button {
   border-radius: 12px;
   margin-bottom: 20px;
   font-size: 14px;
-  color: #374151;
+  color: #000000;
 }
 
 .location-preview ion-icon {
@@ -354,12 +346,12 @@ ion-buttons ion-button {
   margin-bottom: 8px;
   font-size: 14px;
   font-weight: 600;
-  color: #374151;
+  color: #000000;
 }
 
 ion-input, ion-textarea, ion-select {
-  --color: #111827;
-  --placeholder-color: #9CA3AF;
+  --color: #000000;
+  --placeholder-color: #6B7280;
   --placeholder-opacity: 1;
   --background: #F9FAFB;
   --border-radius: 12px;
@@ -367,6 +359,15 @@ ion-input, ion-textarea, ion-select {
   --padding-end: 16px;
   border: 1px solid #E5E7EB;
   border-radius: 12px;
+  color: #000000;
+}
+
+ion-input::part(native), ion-textarea::part(native) {
+  color: #000000 !important;
+}
+
+ion-select::part(text) {
+  color: #000000 !important;
 }
 
 ion-input:focus-within, ion-textarea:focus-within {

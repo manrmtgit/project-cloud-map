@@ -125,3 +125,77 @@ ion-button {
   scrollbar-width: none;
 }
 
+/* ======================== */
+/* GLOBAL TEXT COLORS FIX */
+/* ======================== */
+
+/* Ensure all text is visible (black on white backgrounds) */
+ion-label {
+  color: #000000 !important;
+}
+
+ion-input {
+  --color: #000000 !important;
+}
+
+ion-textarea {
+  --color: #000000 !important;
+}
+
+ion-select {
+  --color: #000000 !important;
+}
+
+ion-item {
+  --color: #000000;
+}
+
+/* Fix for ion-content text */
+ion-content {
+  --color: #000000;
+}
+
+/* ======================== */
+/* LEAFLET MARKER FIX */
+/* ======================== */
+
+/* Remove default Leaflet marker styles */
+.leaflet-marker-icon {
+  background: transparent !important;
+  border: none !important;
+}
+
+.signalement-marker-icon {
+  background: transparent !important;
+  border: none !important;
+}
+
+.user-location-marker-icon {
+  background: transparent !important;
+  border: none !important;
+}
+
+.placing-marker {
+  background: transparent !important;
+  border: none !important;
+}
+
+/* Ensure map tiles load correctly */
+.leaflet-tile-pane {
+  z-index: 200;
+}
+
+.leaflet-overlay-pane {
+  z-index: 400;
+}
+
+.leaflet-marker-pane {
+  z-index: 600;
+}
+
+/* Make sure map container has proper dimensions */
+.leaflet-container {
+  width: 100%;
+  height: 100%;
+  background-color: #f8f8f8;
+}

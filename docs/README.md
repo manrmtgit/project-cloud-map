@@ -9,21 +9,30 @@ L'interface est inspirée de Magic Earth avec une palette violet/bleu moderne (#
 ## 📱 Fonctionnalités
 
 ### Authentification
-- Connexion via l'API d'authentification (pas d'inscription possible)
-- Gestion des sessions avec tokens JWT
-- Blocage après 3 tentatives échouées
+- Connexion via Firebase Authentication (email/mot de passe)
+- Inscription uniquement via le Manager dans l'application web
+- **Limite de 3 tentatives de connexion** avant blocage automatique
+- Déblocage par le Manager
 
 ### Carte Interactive
-- Carte Leaflet avec OpenStreetMap
+- Carte Leaflet avec OpenStreetMap en ligne (`https://tile.openstreetmap.org/{z}/{x}/{y}.png`)
 - Géolocalisation de l'utilisateur
-- Marqueurs personnalisés selon le statut (nouveau, en cours, terminé)
+- Marqueurs personnalisés selon le statut :
+  - 🔴 **NOUVEAU** : Rouge (#e74c3c)
+  - 🟠 **EN_COURS** : Orange (#f39c12)
+  - 🟢 **TERMINE** : Vert (#27ae60)
 - Bottom sheet pour les détails des signalements
 
 ### Gestion des Signalements
-- Création de signalements avec photo
-- Filtrage par statut ou par utilisateur
-- Synchronisation temps réel avec Firebase
-- Statistiques et graphiques
+- Création de signalements avec localisation GPS
+- **Upload de 1 à 5 photos** (stockage local via IndexedDB)
+- Filtre "Mes signalements uniquement"
+- Synchronisation temps réel avec Firebase Realtime Database
+
+### Notifications
+- **Notifications en temps réel** lors d'un changement de statut
+- Notifications système (Web Notification API)
+- Toast in-app
 
 ### Profil
 - Modification des informations personnelles
@@ -35,8 +44,8 @@ L'interface est inspirée de Magic Earth avec une palette violet/bleu moderne (#
 - **Framework**: Ionic 8 + Vue.js 3 + TypeScript
 - **State Management**: Pinia
 - **Cartographie**: Leaflet + OpenStreetMap
-- **Backend**: Firebase (Realtime Database + Storage)
-- **API**: Axios pour l'authentification
+- **Backend**: Firebase (Realtime Database + Authentication)
+- **Stockage photos**: IndexedDB (local)
 - **Charts**: Chart.js + vue-chartjs
 - **Mobile**: Capacitor (Android/iOS)
 

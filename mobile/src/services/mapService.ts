@@ -40,8 +40,8 @@ export const createMarkerIcon = (statut: SignalementStatut, type?: SignalementTy
   const svg = SVG_ICONS[svgKey];
 
   return L.divIcon({
-    className: 'custom-marker',
-    html: svg,
+    className: 'signalement-marker-icon',
+    html: `<div style="display: flex; align-items: center; justify-content: center;">${svg}</div>`,
     iconSize: [40, 50],
     iconAnchor: [20, 50],
     popupAnchor: [0, -50]
@@ -51,7 +51,7 @@ export const createMarkerIcon = (statut: SignalementStatut, type?: SignalementTy
 // Créer un marqueur pour la position utilisateur
 export const createUserLocationMarker = (): L.DivIcon => {
   return L.divIcon({
-    className: 'user-location-marker',
+    className: 'user-location-marker-icon',
     html: `
       <div style="
         width: 24px;
