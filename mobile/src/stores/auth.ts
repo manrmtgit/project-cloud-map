@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia';
 import type { AuthState, LoginCredentials, ProfileUpdateData } from '@/models';
 import { firebaseAuthService } from '@/services/firebaseAuthService';
+import { notificationService } from '@/services/notificationService';
 import { SESSION_CONFIG, ERROR_MESSAGES } from '@/utils/constants';
 
 export const useAuthStore = defineStore('auth', {
@@ -45,6 +46,10 @@ export const useAuthStore = defineStore('auth', {
         this.loginAttempts = 0;
         this.isBlocked = false;
 
+        // Initialiser les notifications pour cet utilisateur
+        notificationService.requestPermission();
+        notificationService.initNotifications(response.user.id);
+
         return true;
       } catch (error: any) {
         // Vérifier si le message indique un blocage
@@ -74,6 +79,8 @@ export const useAuthStore = defineStore('auth', {
 
       try {
         await firebaseAuthService.logout();
+        // Nettoyer le service de notification
+        notificationService.cleanup();
       } finally {
         this.user = null;
         this.token = null;
@@ -132,6 +139,12 @@ export const useAuthStore = defineStore('auth', {
       this.user = firebaseAuthService.getStoredUser();
       this.token = firebaseAuthService.getStoredToken();
       this.isAuthenticated = firebaseAuthService.isLoggedIn();
+
+      // Si l'utilisateur est connecté, initialiser les notifications
+      if (this.isAuthenticated && this.user) {
+        notificationService.requestPermission();
+        notificationService.initNotifications(this.user.id);
+      }
     }
   }
 });

@@ -279,7 +279,7 @@ const updatePlacingMarker = (lat: number, lng: number) => {
         <div style="
           width: 40px;
           height: 40px;
-          background: #6B4FFF;
+          background: none;
           border: 3px solid white;
           border-radius: 50%;
           display: flex;

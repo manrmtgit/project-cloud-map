@@ -26,6 +26,7 @@ export interface Signalement {
   user_id: string;
   user_email?: string;
   photo_url?: string;
+  photos?: string[]; // Support pour plusieurs photos
 }
 
 // Interface pour la création d'un signalement

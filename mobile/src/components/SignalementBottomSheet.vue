@@ -26,36 +26,45 @@
         <h2 class="signalement-title">{{ signalement.titre }}</h2>
         <p class="signalement-description">{{ signalement.description }}</p>
 
-        <!-- Photo -->
-        <div v-if="signalement.photo_url" class="signalement-photo">
-          <img :src="signalement.photo_url" :alt="signalement.titre" />
+        <!-- Photos multiples -->
+        <div v-if="hasPhotos" class="signalement-photos">
+          <div class="photos-scroll">
+            <img
+              v-for="(photo, index) in allPhotos"
+              :key="index"
+              :src="photo"
+              :alt="`Photo ${index + 1}`"
+              @click="openPhoto(photo)"
+            />
+          </div>
+          <span class="photos-count" v-if="allPhotos.length > 1">{{ allPhotos.length }} photos</span>
         </div>
 
         <!-- Détails -->
         <div class="signalement-details">
           <div class="detail-item">
             <ion-icon :icon="calendarOutline"></ion-icon>
-            <span>{{ formatDate(signalement.date_creation) }}</span>
+            <span class="detail-text">{{ formatDate(signalement.date_creation) }}</span>
           </div>
 
           <div class="detail-item">
             <ion-icon :icon="locationOutline"></ion-icon>
-            <span>{{ typeLabel }}</span>
+            <span class="detail-text">{{ typeLabel }}</span>
           </div>
 
           <div v-if="signalement.surface_m2" class="detail-item">
             <ion-icon :icon="resizeOutline"></ion-icon>
-            <span>{{ formatSurface(signalement.surface_m2) }}</span>
+            <span class="detail-text">{{ formatSurface(signalement.surface_m2) }}</span>
           </div>
 
           <div v-if="signalement.budget" class="detail-item">
             <ion-icon :icon="walletOutline"></ion-icon>
-            <span>{{ formatCurrency(signalement.budget) }}</span>
+            <span class="detail-text">{{ formatCurrency(signalement.budget) }}</span>
           </div>
 
           <div v-if="signalement.entreprise" class="detail-item">
             <ion-icon :icon="businessOutline"></ion-icon>
-            <span>{{ signalement.entreprise }}</span>
+            <span class="detail-text">{{ signalement.entreprise }}</span>
           </div>
         </div>
 
@@ -112,6 +121,29 @@ const typeLabel = computed(() => {
   return getTypeLabel(props.signalement.type);
 });
 
+// Combiner photo_url et photos[] pour avoir toutes les photos
+const allPhotos = computed(() => {
+  if (!props.signalement) return [];
+  const photos: string[] = [];
+
+  // Ajouter les photos du tableau photos[]
+  if (props.signalement.photos && props.signalement.photos.length > 0) {
+    photos.push(...props.signalement.photos);
+  } else if (props.signalement.photo_url) {
+    // Si pas de photos[], utiliser photo_url
+    photos.push(props.signalement.photo_url);
+  }
+
+  return photos;
+});
+
+const hasPhotos = computed(() => allPhotos.value.length > 0);
+
+const openPhoto = (photoUrl: string) => {
+  // Ouvrir la photo en plein écran (on peut utiliser un modal ou window.open)
+  window.open(photoUrl, '_blank');
+};
+
 const handleDismiss = () => {
   emit('close');
 };
@@ -167,15 +199,68 @@ const handleDismiss = () => {
 .signalement-title {
   font-size: 20px;
   font-weight: 700;
-  color: #111827;
+  color: #000000;
   margin: 0;
 }
 
 .signalement-description {
   font-size: 14px;
-  color: #6B7280;
+  color: #374151;
   margin: 0;
   line-height: 1.5;
+}
+
+.signalement-photos {
+  position: relative;
+  margin: 8px 0;
+}
+
+.photos-scroll {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.photos-scroll::-webkit-scrollbar {
+  height: 4px;
+}
+
+.photos-scroll::-webkit-scrollbar-track {
+  background: #F3F4F6;
+  border-radius: 2px;
+}
+
+.photos-scroll::-webkit-scrollbar-thumb {
+  background: #D1D5DB;
+  border-radius: 2px;
+}
+
+.photos-scroll img {
+  width: 150px;
+  height: 120px;
+  object-fit: cover;
+  border-radius: 12px;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.photos-scroll img:active {
+  transform: scale(0.95);
+}
+
+.photos-count {
+  position: absolute;
+  bottom: 16px;
+  right: 8px;
+  background: rgba(0, 0, 0, 0.6);
+  color: white;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 500;
 }
 
 .signalement-photo {
@@ -204,7 +289,6 @@ const handleDismiss = () => {
   align-items: center;
   gap: 8px;
   font-size: 13px;
-  color: #374151;
 }
 
 .detail-item ion-icon {
@@ -212,9 +296,14 @@ const handleDismiss = () => {
   color: #6B4FFF;
 }
 
+.detail-text {
+  color: #000000;
+  font-weight: 500;
+}
+
 .signalement-coords {
   font-size: 12px;
-  color: #9CA3AF;
+  color: #4B5563;
   text-align: center;
   padding: 8px;
   background: #F3F4F6;
