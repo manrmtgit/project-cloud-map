@@ -1,0 +1,51 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background gradient circle -->
+  <defs>
+    <linearGradient id="bg-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#6B4FFF;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#4F46E5;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="marker-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#27ae60;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1e8449;stop-opacity:1" />
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="4" stdDeviation="8" flood-opacity="0.25"/>
+    </filter>
+  </defs>
+
+  <!-- Main background -->
+  <rect width="512" height="512" rx="115" fill="url(#bg-gradient)"/>
+
+  <!-- Decorative map grid lines -->
+  <g opacity="0.1" stroke="white" stroke-width="2">
+    <line x1="128" y1="0" x2="128" y2="512"/>
+    <line x1="256" y1="0" x2="256" y2="512"/>
+    <line x1="384" y1="0" x2="384" y2="512"/>
+    <line x1="0" y1="128" x2="512" y2="128"/>
+    <line x1="0" y1="256" x2="512" y2="256"/>
+    <line x1="0" y1="384" x2="512" y2="384"/>
+  </g>
+
+  <!-- Cloud shape -->
+  <g filter="url(#shadow)">
+    <path d="M380 220 C380 180 350 155 310 155 C300 120 260 100 220 110 C180 85 130 100 110 140 C80 145 60 175 65 210 C50 220 40 240 45 265 C40 290 55 315 85 325 L410 325 C440 320 455 295 450 270 C455 245 440 220 410 215 C400 200 390 200 380 220Z" fill="white" opacity="0.95"/>
+  </g>
+
+  <!-- Location marker pin -->
+  <g filter="url(#shadow)">
+    <!-- Pin body -->
+    <path d="M256 140 C310 140 355 185 355 240 C355 310 256 400 256 400 C256 400 157 310 157 240 C157 185 202 140 256 140Z" fill="url(#marker-gradient)"/>
+    <!-- Inner circle -->
+    <circle cx="256" cy="235" r="55" fill="white"/>
+    <!-- Checkmark for "done/validated" -->
+    <path d="M226 235 L246 255 L286 215" stroke="#27ae60" stroke-width="14" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+
+  <!-- Road/path representation -->
+  <g opacity="0.3" fill="white">
+    <rect x="100" y="420" width="312" height="12" rx="6"/>
+    <rect x="140" y="445" width="232" height="8" rx="4"/>
+    <rect x="180" y="465" width="152" height="6" rx="3"/>
+  </g>
+</svg>

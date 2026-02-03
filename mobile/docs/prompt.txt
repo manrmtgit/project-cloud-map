@@ -1,0 +1,824 @@
+# Prompt Complet - Développement Module Mobile du Projet Cloud P17
+
+## Vue d'ensemble du Projet
+Développer un module mobile pour un système de gestion des travaux routiers à Antananarivo. Ce module fait partie d'une architecture à 3 composants interconnectés : Module Authentification (API Node.js), Module Web (React), et Module Mobile (Ionic Vue.js TypeScript). Le design doit s'inspirer de l'application Magic Earth pour offrir une expérience utilisateur moderne et intuitive.
+
+---
+
+## 1. STACK TECHNIQUE IMPOSÉE
+
+### Technologies Obligatoires
+- **Framework**: Ionic avec Vue.js 3 et TypeScript
+- **Cartographie**: Leaflet + OpenStreetMap (en ligne uniquement)
+- **Authentification**: Firebase Authentication
+- **Base de données**: Firebase Realtime Database ou Firestore
+- **State Management**: Pinia (recommandé) ou Vuex
+- **API Communication**: Axios ou Fetch pour appels REST
+- **Icons**: Ionicons + icônes personnalisées identiques au module web
+
+### Contraintes Techniques
+- L'application mobile doit utiliser Vue.js (pas React/Angular car utilisé par le web)
+- Pas de backend mobile local - tout passe par Firebase et l'API d'authentification
+- Génération d'un APK fonctionnel pour Android
+- Code hébergé sur GitHub ou GitLab public
+
+---
+
+## 2. ARCHITECTURE ET INTÉGRATION
+
+### Modules Existants à Intégrer
+
+**Module Authentification (API Node.js dans Docker)**
+- API REST pour authentification (email/password)
+- Deux modes : Firebase (si Internet) ou PostgreSQL local (si offline)
+- Gestion des sessions avec durée de vie configurable
+- Limite de tentatives de connexion (3 par défaut, paramétrable)
+- API de déblocage utilisateur (pour le manager web)
+- Documentation Swagger disponible
+
+**Module Web (React)**
+- Utilise le serveur de cartes offline (Docker) avec Leaflet
+- Deux profils : Visiteur (sans compte) et Manager (avec compte)
+- Le Manager peut créer des comptes utilisateurs mobile
+- Synchronisation bidirectionnelle avec Firebase
+- Gestion complète des signalements (CRUD + changement de statut)
+- Page de déblocage des utilisateurs
+
+**Module Mobile (à développer)**
+- Utilise Firebase en ligne uniquement (pas de mode offline pour l'auth)
+- Les utilisateurs sont créés par le Manager via le web
+- Consomme l'API d'authentification Node.js
+- Synchronise les signalements avec Firebase
+
+### Points d'Intégration Critiques
+
+1. **Authentification**
+   - Le mobile appelle l'API REST d'authentification Node.js
+   - L'API vérifie via Firebase (si connecté)
+   - Gestion du token de session et sa durée de vie
+   - Respect de la limite de tentatives de connexion
+   - Si compte bloqué, seul le Manager peut débloquer depuis le web
+
+2. **Synchronisation des Signalements**
+   - Les signalements créés sur mobile sont envoyés à Firebase
+   - Le Manager synchronise depuis le web (bouton sync)
+   - Les modifications du Manager (statut, budget, entreprise) sont visibles sur mobile
+   - Temps réel ou polling régulier pour les mises à jour
+
+3. **Gestion des Utilisateurs**
+   - Inscription impossible depuis le mobile
+   - Seul le Manager peut créer un compte via le web
+   - L'utilisateur mobile se connecte avec les identifiants fournis
+   - Possibilité de modifier ses propres informations (via API)
+
+---
+
+## 3. DESIGN INSPIRÉ DE MAGIC EARTH
+
+### Principes de Design
+
+**Esthétique Générale**
+- Interface épurée et moderne avec beaucoup d'espace blanc
+- Palette de couleurs : violet/bleu (#6B4FFF, #4F46E5) pour les éléments principaux
+- Fond clair avec cartes plein écran
+- Typographie sans-serif moderne (Roboto, SF Pro, Inter)
+- Coins arrondis sur tous les boutons et cartes
+- Ombres subtiles pour la profondeur
+
+**Navigation**
+- Bottom navigation bar avec 3 onglets : Map, Activities, Profile
+- Icônes minimalistes et labels clairs
+- Indicateur visuel de l'onglet actif (couleur violette)
+
+**Écran de Carte (Principal)**
+- Carte Leaflet en plein écran
+- Bouton de géolocalisation flottant (cercle blanc avec icône) en bas à droite
+- Bouton layers/options flottant en haut à droite
+- Search bar en bas avec icône de recherche
+- Marqueurs personnalisés pour les signalements (mêmes icônes que le web)
+- Bottom sheet au clic sur un marqueur (pas de popup en haut à gauche)
+
+**Écran de Profil**
+- Avatar circulaire en haut
+- Nom de l'utilisateur en grand
+- Boutons arrondis colorés : "Edit Profile", "Settings"
+- Section Premium (désactivée ou masquée si non pertinente)
+- Bouton "Logout" noir en bas
+
+**Modals et Bottom Sheets**
+- Animations fluides de type slide-up
+- Fond semi-transparent (overlay)
+- Contenu sur carte blanche avec coins arrondis
+- Bouton de fermeture (X) en haut à droite
+
+---
+
+## 4. FONCTIONNALITÉS DÉTAILLÉES
+
+### 4.1 Authentification
+
+**Écran de Login**
+- Logo de l'application en haut
+- Champs : Email, Mot de passe
+- Bouton "Se connecter" (violet, arrondi)
+- Message d'erreur si identifiants incorrects
+- Gestion du blocage après 3 tentatives
+- Message spécifique : "Compte bloqué. Contactez un administrateur."
+- Pas de lien d'inscription (création par Manager uniquement)
+
+**Gestion de Session**
+- Token stocké en mémoire (pas localStorage/sessionStorage si artifact)
+- Vérification de la durée de vie du token
+- Redirection automatique vers login si session expirée
+- Refresh token si implémenté dans l'API
+
+**Modification du Profil**
+- Appel à l'API d'authentification pour update
+- Champs modifiables : nom, prénom, email, mot de passe
+- Validation des champs avant envoi
+- Feedback visuel de succès/échec
+
+### 4.2 Cartographie Interactive
+
+**Affichage de la Carte**
+- Leaflet initialisé avec OpenStreetMap tiles
+- Centrage sur Antananarivo au démarrage
+- Zoom et déplacement fluides
+- Géolocalisation de l'utilisateur avec marqueur bleu
+- Bouton de recentrage sur position utilisateur
+
+**Marqueurs de Signalements**
+- Icônes personnalisées selon le type de problème (identiques au web)
+- Couleur selon statut :
+  - Rouge : Nouveau
+  - Orange : En cours
+  - Vert : Terminé
+- Clustering si beaucoup de marqueurs proches
+- Icônes claires et visibles sur tous les fonds de carte
+
+**Interaction avec les Marqueurs**
+- Au clic : ouverture d'un bottom sheet (pas de marqueur en haut à gauche)
+- Bottom sheet affiche :
+  - Date du signalement
+  - Statut actuel (badge coloré)
+  - Surface en m²
+  - Budget estimé
+  - Entreprise concernée
+  - Photo si disponible
+  - Bouton "Voir le trajet" (optionnel)
+- Bouton de fermeture (swipe down ou X)
+
+**Création de Signalement**
+- Bouton flottant principal (FAB) en bas au centre avec icône "+"
+- Au clic : activer mode "placement de marqueur"
+- L'utilisateur clique sur la carte pour positionner le signalement
+- Ouverture d'un formulaire modal :
+  - Titre/Description
+  - Type de problème (menu déroulant)
+  - Photo (capture ou galerie)
+  - Confirmation de la localisation
+- Validation et envoi à Firebase
+- Feedback de succès avec animation
+
+### 4.3 Filtres et Recherche
+
+**Filtre "Mes Signalements"**
+- Toggle switch dans la barre de recherche ou menu
+- Quand activé : afficher uniquement les signalements de l'utilisateur connecté
+- Mise à jour dynamique de la carte
+- Badge avec le nombre de signalements personnels
+
+**Recherche**
+- Barre de recherche en bas de l'écran (style Magic Earth)
+- Recherche par lieu, rue, quartier d'Antananarivo
+- Autocomplétion avec OpenStreetMap Nominatim
+- Résultats en liste déroulante
+- Centrage de la carte sur le lieu sélectionné
+
+### 4.4 Tableau Récapitulatif
+
+**Écran Activities ou Section dans Map**
+- Accessible via bottom navigation ou swipe up
+- Affiche les statistiques globales :
+  - Nombre total de signalements
+  - Surface totale affectée (m²)
+  - Avancement global (pourcentage)
+  - Budget total
+- Graphiques visuels (barres, camemberts) avec Chart.js ou similaire
+- Liste scrollable des signalements récents
+- Filtres : Tous / Mes signalements
+
+**Vue Liste des Signalements**
+- Cartes (cards) pour chaque signalement
+- Informations résumées : titre, statut, date
+- Icône du type de problème
+- Au clic : redirection vers la carte centrée sur ce point
+
+### 4.5 Écran Profil
+
+**Informations Utilisateur**
+- Avatar (photo de profil ou initiales)
+- Nom complet de l'utilisateur
+- Email
+- Nombre de signalements effectués
+
+**Actions Disponibles**
+- "Edit Profile" : modifier nom, email, mot de passe
+- "Settings" : préférences (notifications, langue, thème)
+- "Logout" : déconnexion avec confirmation
+
+**Section Statistiques Personnelles**
+- Mes signalements : nombre total
+- En attente / En cours / Terminés
+- Historique des contributions
+
+---
+
+## 5. SYNCHRONISATION FIREBASE
+
+### Architecture de Données Firebase
+
+**Collections/Nodes**
+```
+/signalements
+  /{signalementId}
+    - titre: string
+    - description: string
+    - latitude: number
+    - longitude: number
+    - type: string
+    - statut: 'nouveau' | 'en_cours' | 'terminé'
+    - surface_m2: number
+    - budget: number
+    - entreprise: string
+    - date_creation: timestamp
+    - date_modification: timestamp
+    - user_id: string
+    - photo_url: string (optionnel)
+
+/users
+  /{userId}
+    - email: string
+    - nom: string
+    - prenom: string
+    - role: 'mobile_user'
+    - signalements_ids: array
+```
+
+### Stratégie de Synchronisation
+
+**Depuis Mobile vers Firebase**
+- Lors de la création d'un signalement : `push()` immédiat
+- Sauvegarde du `user_id` pour traçabilité
+- Upload de la photo sur Firebase Storage si présente
+- Gestion des erreurs réseau avec retry automatique
+
+**Depuis Firebase vers Mobile**
+- Écoute temps réel avec `onValue()` ou `onSnapshot()`
+- Mise à jour automatique de la carte quand données changent
+- Optimisation : ne charger que les signalements dans la zone visible (bounds)
+- Cache local pour accès rapide
+
+**Depuis Web Manager vers Mobile**
+- Le Manager modifie statut, budget, entreprise via le web
+- Ces modifications sont écrites dans Firebase
+- Le mobile les reçoit en temps réel
+- Notification push optionnelle pour l'utilisateur concerné
+
+---
+
+## 6. GESTION DES ÉTATS ET ERREURS
+
+### State Management (Pinia)
+
+**Store Auth**
+- `user`: objet utilisateur connecté
+- `token`: JWT token de session
+- `isAuthenticated`: boolean
+- `loginAttempts`: compteur de tentatives
+- Actions : `login()`, `logout()`, `updateProfile()`, `checkSession()`
+
+**Store Signalements**
+- `signalements`: array de tous les signalements
+- `mySignalements`: array filtré par user_id
+- `selectedSignalement`: signalement actuellement affiché
+- `loading`: état de chargement
+- Actions : `fetchSignalements()`, `createSignalement()`, `filterMine()`
+
+**Store Map**
+- `center`: coordonnées du centre de la carte
+- `zoom`: niveau de zoom
+- `userLocation`: position GPS de l'utilisateur
+- `showOnlyMine`: boolean pour le filtre
+
+### Gestion des Erreurs
+
+**Erreurs Réseau**
+- Afficher une alerte/toast : "Pas de connexion Internet"
+- Désactiver les fonctionnalités qui nécessitent Internet
+- Retry automatique pour les requêtes critiques
+
+**Erreurs d'Authentification**
+- Message clair selon le type d'erreur
+- Compte bloqué : "Votre compte est bloqué. Contactez un administrateur."
+- Session expirée : redirection automatique vers login
+- Tentatives échouées : "Tentative X/3. Attention, votre compte sera bloqué."
+
+**Erreurs de Synchronisation**
+- Toast : "Impossible de synchroniser les données"
+- Bouton "Réessayer"
+- Log des erreurs pour debugging
+
+### Loading States
+
+- Skeleton screens pendant le chargement initial
+- Spinners pour les actions ponctuelles
+- Pull-to-refresh sur les listes
+- Indicators de progression pour l'upload de photos
+
+---
+
+## 7. INTÉGRATION COMPLÈTE DES 3 MODULES
+
+### Workflow de Création d'Utilisateur
+
+1. **Manager (Web)** : Crée un compte utilisateur mobile
+   - Appelle l'API d'authentification `/register`
+   - L'utilisateur est créé dans Firebase Auth
+   - Reçoit un email avec identifiants temporaires
+
+2. **Utilisateur Mobile** : Se connecte avec les identifiants
+   - Ouvre l'app mobile
+   - Entre email/password
+   - L'app appelle l'API d'authentification `/login`
+   - Reçoit un token de session
+   - Peut modifier son mot de passe lors de la première connexion
+
+### Workflow de Signalement
+
+1. **Utilisateur Mobile** : Crée un signalement
+   - Place un marqueur sur la carte
+   - Remplit le formulaire
+   - Prend une photo
+   - Soumet → envoyé à Firebase
+
+2. **Firebase** : Stocke le signalement
+   - Enregistre dans `/signalements`
+   - Upload de la photo dans Storage
+   - Déclenche les listeners en temps réel
+
+3. **Manager (Web)** : Synchronise et traite
+   - Clique sur "Synchronisation"
+   - Récupère les nouveaux signalements depuis Firebase
+   - Les affiche sur sa carte offline (Docker)
+   - Complète les infos : surface, budget, entreprise
+   - Modifie le statut : nouveau → en cours → terminé
+   - Pousse les modifications vers Firebase
+
+4. **Utilisateur Mobile** : Voit les mises à jour
+   - La carte se met à jour automatiquement
+   - Le statut change de couleur
+   - Les nouvelles infos (budget, entreprise) sont visibles
+
+### Workflow de Déblocage
+
+1. **Utilisateur Mobile** : Bloqué après 3 tentatives
+   - Ne peut plus se connecter
+   - Reçoit un message explicite
+
+2. **Manager (Web)** : Débloque l'utilisateur
+   - Va sur la page "Utilisateurs bloqués"
+   - Sélectionne l'utilisateur
+   - Clique sur "Débloquer"
+   - Appelle l'API `/unblock/{userId}`
+
+3. **API d'Authentification** : Réinitialise le compteur
+   - Met à jour le compteur de tentatives à 0
+   - L'utilisateur peut à nouveau se connecter
+
+### Communication entre Modules
+
+**Mobile → API Auth**
+- `POST /login` : authentification
+- `POST /register` : (non utilisé, réservé au Manager)
+- `PUT /profile` : modification du profil
+- `POST /logout` : déconnexion
+
+**Mobile → Firebase**
+- Lecture : `onValue('/signalements')`
+- Écriture : `push('/signalements')`
+- Storage : upload de photos
+
+**Web → API Auth**
+- `POST /register` : création de compte mobile
+- `POST /unblock/{userId}` : déblocage
+
+**Web → Firebase**
+- Lecture : récupération des signalements mobiles
+- Écriture : mise à jour statut, budget, entreprise
+
+---
+
+## 8. RÈGLES DE GESTION STRICTES
+
+### Authentification
+- ✅ Les utilisateurs mobiles ne peuvent PAS s'inscrire eux-mêmes
+- ✅ Seul le Manager peut créer un compte via le web
+- ✅ Limite de 3 tentatives de connexion par défaut (paramétrable)
+- ✅ Après 3 échecs, le compte est bloqué
+- ✅ Seul un appel API par le Manager peut débloquer
+- ✅ Les sessions ont une durée de vie limitée (configurable)
+- ✅ Vérification du token à chaque action sensible
+
+### Signalements
+- ✅ Tout utilisateur mobile connecté peut créer un signalement
+- ✅ Un signalement doit avoir : localisation, type, description
+- ✅ La photo est optionnelle
+- ✅ Surface, budget, entreprise sont complétés par le Manager
+- ✅ Seul le Manager peut changer le statut
+- ✅ Les statuts possibles : nouveau, en_cours, terminé
+- ✅ Un utilisateur peut voir tous les signalements
+- ✅ Un utilisateur peut filtrer pour voir uniquement les siens
+
+### Synchronisation
+- ✅ Le mobile envoie immédiatement à Firebase
+- ✅ Le web synchronise manuellement via bouton (pas automatique)
+- ✅ Les modifications du Manager sont poussées vers Firebase
+- ✅ Le mobile reçoit les mises à jour en temps réel
+- ✅ Gestion des conflits : last-write-wins
+
+### Cartographie
+- ✅ Le web utilise un serveur de cartes offline (Docker)
+- ✅ Le mobile utilise OpenStreetMap en ligne (pas offline)
+- ✅ Les icônes de signalement doivent être identiques web/mobile
+- ✅ Leaflet est obligatoire pour la manipulation des cartes
+
+---
+
+## 9. SPÉCIFICATIONS TECHNIQUES DÉTAILLÉES
+
+### Structure du Projet Ionic
+
+```
+src/
+├── components/
+│   ├── MapView.vue (carte Leaflet)
+│   ├── SignalementMarker.vue (marqueurs personnalisés)
+│   ├── SignalementBottomSheet.vue (détails au clic)
+│   ├── CreateSignalementModal.vue (formulaire de création)
+│   ├── StatsCard.vue (carte de statistiques)
+│   └── UserAvatar.vue (avatar utilisateur)
+├── views/
+│   ├── LoginView.vue (écran de connexion)
+│   ├── MapView.vue (page principale avec carte)
+│   ├── ActivitiesView.vue (liste et stats)
+│   ├── ProfileView.vue (profil utilisateur)
+│   └── EditProfileView.vue (modification profil)
+├── stores/
+│   ├── auth.ts (Pinia store authentification)
+│   ├── signalements.ts (Pinia store signalements)
+│   └── map.ts (Pinia store carte)
+├── services/
+│   ├── authService.ts (API calls auth)
+│   ├── firebaseService.ts (Firebase operations)
+│   └── mapService.ts (Leaflet helpers)
+├── models/
+│   ├── User.ts (interface utilisateur)
+│   ├── Signalement.ts (interface signalement)
+│   └── ApiResponse.ts (types de réponses API)
+├── utils/
+│   ├── validators.ts (validation formulaires)
+│   ├── formatters.ts (formatage dates, nombres)
+│   └── constants.ts (constantes globales)
+├── router/
+│   └── index.ts (routing + guards)
+└── App.vue (composant racine)
+```
+
+### Configuration Firebase
+
+**firebase.config.ts**
+```typescript
+// Configuration Firebase avec vos clés
+// Initialisation de Firebase App
+// Initialisation de Firebase Auth
+// Initialisation de Firebase Database ou Firestore
+// Initialisation de Firebase Storage (pour photos)
+```
+
+**Règles de Sécurité Firebase**
+- Les utilisateurs authentifiés peuvent lire tous les signalements
+- Les utilisateurs peuvent créer des signalements
+- Les utilisateurs peuvent modifier uniquement leurs propres signalements
+- Seul le Manager (role admin) peut modifier les statuts
+
+### Configuration Leaflet
+
+**Initialisation**
+- Tiles : OpenStreetMap standard
+- Attribution correcte
+- Zoom min : 10, max : 18
+- Centre : Antananarivo (-18.8792, 47.5079)
+
+**Marqueurs Personnalisés**
+- Créer des divIcons personnalisés avec HTML/CSS
+- Utiliser les mêmes SVG/PNG que le module web
+- Taille : 40x40px minimum pour bonne visibilité mobile
+
+### API d'Authentification - Endpoints
+
+**Base URL**: `http://api-auth-url/api/v1`
+
+```
+POST /auth/login
+Body: { email, password }
+Response: { token, user, expiresIn }
+
+PUT /auth/profile
+Headers: { Authorization: Bearer {token} }
+Body: { nom, prenom, email, password? }
+Response: { user }
+
+POST /auth/logout
+Headers: { Authorization: Bearer {token} }
+Response: { message }
+
+GET /auth/check-session
+Headers: { Authorization: Bearer {token} }
+Response: { valid: boolean }
+```
+
+---
+
+## 10. DESIGN SYSTEM ET COMPOSANTS UI
+
+### Palette de Couleurs
+
+```
+Primary: #6B4FFF (Violet)
+Primary Dark: #5A3FD9
+Secondary: #4F46E5 (Bleu indigo)
+Success: #10B981 (Vert)
+Warning: #F59E0B (Orange)
+Error: #EF4444 (Rouge)
+Background: #FFFFFF
+Surface: #F9FAFB
+Text Primary: #111827
+Text Secondary: #6B7280
+Border: #E5E7EB
+```
+
+### Typographie
+
+```
+Headings:
+  H1 - 28px, Bold (Profil, titres pages)
+  H2 - 24px, Semibold (Sections)
+  H3 - 20px, Semibold (Cards)
+
+Body:
+  Regular - 16px (texte principal)
+  Small - 14px (labels, descriptions)
+  Caption - 12px (métadonnées, hints)
+```
+
+### Espacements
+
+```
+xs: 4px
+sm: 8px
+md: 16px
+lg: 24px
+xl: 32px
+xxl: 48px
+```
+
+### Composants Réutilisables
+
+**Boutons**
+- Primary : fond violet, texte blanc, arrondi 12px
+- Secondary : fond blanc, bordure violette, texte violet
+- Text : pas de fond, texte violet
+- Icon : bouton circulaire avec icône centrée
+
+**Cards**
+- Fond blanc, ombre légère
+- Padding : 16px
+- Coins arrondis : 16px
+
+**Input Fields**
+- Bordure grise, focus violet
+- Label flottant au-dessus
+- Icône à gauche (optionnel)
+- Message d'erreur en rouge en dessous
+
+**Bottom Sheets**
+- Animation slide-up
+- Handle en haut (barre grise pour swipe)
+- Fermeture par swipe down ou bouton X
+- Hauteur adaptative au contenu
+
+---
+
+## 11. TESTS ET VALIDATION
+
+### Tests Fonctionnels à Réaliser
+
+**Authentification**
+- ✅ Connexion avec identifiants valides
+- ✅ Connexion avec identifiants invalides
+- ✅ Blocage après 3 tentatives
+- ✅ Message de compte bloqué
+- ✅ Expiration de session
+- ✅ Modification de profil
+
+**Signalements**
+- ✅ Création d'un nouveau signalement
+- ✅ Upload de photo
+- ✅ Affichage sur la carte
+- ✅ Clic sur marqueur → bottom sheet
+- ✅ Filtre "Mes signalements"
+- ✅ Synchronisation depuis Firebase
+
+**Intégration**
+- ✅ Signalement créé sur mobile visible sur web après sync
+- ✅ Modification du Manager visible sur mobile
+- ✅ Déblocage d'utilisateur fonctionnel
+- ✅ Cohérence des données entre web et mobile
+
+**UI/UX**
+- ✅ Design cohérent avec Magic Earth
+- ✅ Animations fluides
+- ✅ Responsive sur différentes tailles d'écran
+- ✅ Pas de décalage lors du clic sur marqueur
+- ✅ Bottom sheet bien positionné
+
+### Critères d'Acceptation
+
+1. L'utilisateur ne peut pas s'inscrire depuis le mobile ✅
+2. L'authentification passe par l'API Node.js ✅
+3. Les signalements sont synchronisés avec Firebase ✅
+4. La carte utilise Leaflet + OpenStreetMap ✅
+5. Le design s'inspire de Magic Earth ✅
+6. Les icônes sont identiques au module web ✅
+7. Au clic sur un marqueur, les infos s'affichent en bottom sheet (pas en haut à gauche) ✅
+8. Le filtre "Mes signalements" fonctionne ✅
+9. Le tableau récapitulatif est correct ✅
+10. L'APK se génère et s'installe sur Android ✅
+
+---
+
+## 12. LIVRABLES ATTENDUS
+
+### Code Source
+- Repository GitHub/GitLab public
+- README.md complet avec instructions d'installation
+- Code propre, commenté, typé (TypeScript)
+- Structure de projet organisée
+- Pas de clés API ou secrets dans le code (utiliser .env)
+
+### Application Mobile
+- APK Android fonctionnel
+- Testé sur au moins un appareil physique ou émulateur
+- Permissions correctement déclarées (localisation, caméra, stockage)
+
+### Documentation Technique
+- MCD (Modèle Conceptuel de Données)
+- Scénarios d'utilisation avec captures d'écran
+- Liste des membres avec nom, prénom, NumETU
+- Architecture de l'application
+- Guide d'installation et de déploiement
+- Documentation des API utilisées
+
+### Design
+- Maquettes ou wireframes (Figma, Adobe XD)
+- Guide de style (couleurs, typographie, composants)
+- Captures d'écran de l'application finale
+
+---
+
+## 13. POINTS D'ATTENTION CRITIQUES
+
+### À FAIRE ABSOLUMENT
+✅ Respecter le design Magic Earth (moderne, épuré, violet/bleu)
+✅ Bottom sheet pour les infos de signalement (PAS de popup en haut à gauche)
+✅ Icônes de signalement identiques au module web
+✅ Authentification via l'API Node.js, pas directement Firebase
+✅ Inscription impossible depuis le mobile
+✅ Synchronisation bidirectionnelle avec Firebase
+✅ Gestion stricte des 3 tentatives de connexion
+✅ Leaflet + OpenStreetMap pour la carte
+✅ Vue.js (pas React/Angular car utilisé par le web)
+
+### À ÉVITER ABSOLUMENT
+❌ Créer une interface d'inscription sur le mobile
+❌ Afficher un marqueur ou popup en haut à gauche au clic
+❌ Utiliser des icônes différentes du module web
+❌ Court-circuiter l'API d'authentification
+❌ Stocker des données sensibles en clair
+❌ Design générique ou dépassé
+❌ Utiliser React ou Angular (réservés au web)
+
+---
+
+## 14. CONSEILS DE DÉVELOPPEMENT
+
+### Ordre de Développement Recommandé
+
+1. **Phase 1 - Configuration**
+   - Initialiser le projet Ionic Vue.js TypeScript
+   - Configurer Firebase
+   - Configurer l'API d'authentification
+   - Mettre en place Pinia stores
+
+2. **Phase 2 - Authentification**
+   - Écran de login
+   - Intégration API d'authentification
+   - Gestion du token et des sessions
+   - Navigation guards
+
+3. **Phase 3 - Carte de Base**
+   - Intégrer Leaflet
+   - Afficher OpenStreetMap
+   - Géolocalisation utilisateur
+   - Navigation de base
+
+4. **Phase 4 - Signalements**
+   - Récupérer signalements depuis Firebase
+   - Afficher les marqueurs sur la carte
+   - Créer les icônes personnalisées
+   - Bottom sheet d'information
+
+5. **Phase 5 - Création de Signalement**
+   - Bouton flottant
+   - Formulaire de création
+   - Upload de photo
+   - Envoi à Firebase
+
+6. **Phase 6 - Filtres et Statistiques**
+   - Filtre "Mes signalements"
+   - Écran Activities avec stats
+   - Tableau récapitulatif
+
+7. **Phase 7 - Profil et Paramètres**
+   - Écran de profil
+   - Modification des informations
+   - Déconnexion
+
+8. **Phase 8 - Design et Polish**
+   - Appliquer le design Magic Earth
+   - Animations et transitions
+   - Loading states
+   - Error handling
+
+9. **Phase 9 - Tests et Optimisations**
+   - Tests de tous les workflows
+   - Tests d'intégration avec web/auth
+   - Optimisations de performance
+   - Génération de l'APK
+
+### Bonnes Pratiques
+
+- Utiliser TypeScript strict mode
+- Typer toutes les interfaces et fonctions
+- Composants réutilisables et modulaires
+- Services séparés pour logique métier
+- Gestion d'erreurs robuste avec try/catch
+- Loading states pour toutes les opérations async
+- Logs pour le debugging
+- Comments pour la logique complexe
+- Variables et fonctions en anglais
+- Commits Git fréquents et descriptifs
+
+---
+
+## 15. RESSOURCES ET RÉFÉRENCES
+
+### Documentation
+- Ionic Vue.js : https://ionicframework.com/docs/vue/overview
+- Leaflet : https://leafletjs.com/reference.html
+- Firebase : https://firebase.google.com/docs
+- Pinia : https://pinia.vuejs.org/
+- Vue 3 : https://vuejs.org/guide/introduction.html
+
+### Design Inspiration
+- Magic Earth (installer l'app pour référence)
+- Material Design 3
+- iOS Human Interface Guidelines
+
+### Icônes
+- Ionicons : https://ionic.io/ionicons
+- Heroicons : https://heroicons.com/
+- Lucide : https://lucide.dev/
+
+---
+
+## CONCLUSION
+
+Ce prompt complet couvre tous les aspects du développement du module mobile. L'agent programmeur doit suivre ces spécifications à la lettre, en respectant particulièrement :
+- L'intégration avec les modules existants (API Auth + Web)
+- Le design inspiré de Magic Earth
+- Les règles de gestion strictes du projet
+- L'affichage des informations en bottom sheet (pas en haut à gauche)
+- L'utilisation des mêmes icônes que le module web
+Le résultat final doit être une application mobile professionnelle, moderne, parfaitement intégrée avec l'écosystème web/auth, et offrant une expérience utilisateur fluide et intuitive.

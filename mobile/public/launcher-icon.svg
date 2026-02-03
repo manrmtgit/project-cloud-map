@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#6B4FFF;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#4F46E5;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="pinGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#FFFFFF;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#E8E8FF;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="512" height="512" fill="url(#bgGradient)"/>
+
+  <!-- Stylized map pattern -->
+  <g opacity="0.12">
+    <path d="M60 180 Q180 140 256 200 T452 160" stroke="white" stroke-width="28" fill="none" stroke-linecap="round"/>
+    <path d="M60 280 Q160 330 256 280 T452 310" stroke="white" stroke-width="24" fill="none" stroke-linecap="round"/>
+    <path d="M100 380 Q200 350 300 400 T440 370" stroke="white" stroke-width="20" fill="none" stroke-linecap="round"/>
+  </g>
+
+  <!-- Cloud element -->
+  <g>
+    <ellipse cx="160" cy="130" rx="55" ry="40" fill="white" opacity="0.85"/>
+    <ellipse cx="220" cy="115" rx="70" ry="55" fill="white" opacity="0.9"/>
+    <ellipse cx="285" cy="135" rx="50" ry="35" fill="white" opacity="0.85"/>
+  </g>
+
+  <!-- Main location pin with shadow -->
+  <g>
+    <!-- Shadow -->
+    <ellipse cx="260" cy="415" rx="60" ry="15" fill="black" opacity="0.2"/>
+
+    <!-- Pin body -->
+    <path d="M256 100 C185 100 130 155 130 226 C130 325 256 420 256 420 C256 420 382 325 382 226 C382 155 327 100 256 100 Z" fill="url(#pinGradient)"/>
+
+    <!-- Inner circle -->
+    <circle cx="256" cy="226" r="60" fill="url(#bgGradient)"/>
+
+    <!-- Checkmark icon -->
+    <path d="M222 226 L246 250 L290 198" stroke="white" stroke-width="16" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+
+  <!-- Secondary markers -->
+  <circle cx="400" cy="350" r="18" fill="white" opacity="0.75"/>
+  <circle cx="120" cy="400" r="14" fill="white" opacity="0.6"/>
+  <circle cx="420" cy="440" r="12" fill="white" opacity="0.5"/>
+</svg>
