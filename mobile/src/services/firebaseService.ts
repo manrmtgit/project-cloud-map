@@ -96,6 +96,32 @@ export const firebaseService = {
     }
   },
 
+  // Upload de plusieurs photos
+  async uploadMultiplePhotos(files: Blob[], signalementId: string): Promise<string[]> {
+    try {
+      const uploadPromises = files.map(async (file, index) => {
+        const photoRef = storageRef(storage, `signalements/${signalementId}/${Date.now()}_${index}.jpg`);
+        await uploadBytes(photoRef, file);
+        return await getDownloadURL(photoRef);
+      });
+
+      const urls = await Promise.all(uploadPromises);
+
+      // Mettre à jour le signalement avec les URLs des photos
+      const signalementRefToUpdate = ref(database, `signalements/${signalementId}`);
+      await update(signalementRefToUpdate, {
+        photos: urls,
+        photo_url: urls[0], // La première photo comme photo principale
+        date_modification: new Date().toISOString()
+      });
+
+      return urls;
+    } catch (error) {
+      console.error('Erreur lors de l\'upload des photos:', error);
+      throw error;
+    }
+  },
+
   // Calculer les statistiques
   calculateStats(signalements: Signalement[]): SignalementStats {
     const stats: SignalementStats = {

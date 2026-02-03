@@ -1,0 +1,40 @@
+Utiliser ces resources utiliser dans le projet web.
+'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
+const icons = {
+'NOUVEAU': <svg width="40" height="50" viewBox="0 0 40 50" xmlns="http://www.w3.org/2000/svg"> <path d="M20 0 C31 0 40 9 40 20 C40 35 20 50 20 50 C20 50 0 35 0 20 C0 9 9 0 20 0Z" fill="#e74c3c"/> <circle cx="20" cy="20" r="12" fill="white"/> <text x="20" y="25" text-anchor="middle" font-size="16" font-weight="bold" fill="#e74c3c">!</text> </svg> ,
+'EN_COURS': <svg width="40" height="50" viewBox="0 0 40 50" xmlns="http://www.w3.org/2000/svg"> <path d="M20 0 C31 0 40 9 40 20 C40 35 20 50 20 50 C20 50 0 35 0 20 C0 9 9 0 20 0Z" fill="#f39c12"/> <circle cx="20" cy="20" r="12" fill="white"/> <path d="M14 20 L18 20 L18 14 L22 14 L22 20 L26 20 L20 26 Z" fill="#f39c12"/> </svg> ,
+'TERMINE': <svg width="40" height="50" viewBox="0 0 40 50" xmlns="http://www.w3.org/2000/svg"> <path d="M20 0 C31 0 40 9 40 20 C40 35 20 50 20 50 C20 50 0 35 0 20 C0 9 9 0 20 0Z" fill="#27ae60"/> <circle cx="20" cy="20" r="12" fill="white"/> <path d="M14 20 L18 24 L26 16" stroke="#27ae60" stroke-width="3" fill="none" stroke-linecap="round"/> </svg> 
+}
+Pour que le rendu de la carte dans mobile soit plus rapide utilise ces resources,
+et a corriger du cote ou quand on apyuie sur l'un des icones on affiche directement
+les informations en non mettre l'icone sur la partie haut a gauche de l'ecran,
+regle les couleurs dess textes a mettre en noir pour plus de visiblite pour les textes sur les fond blancs.
+Rend l'icone de l'application, le splash icon comme celui du png fourni.
+
+Nouvelle fonctionnalité a ajouter:
+Module Mobile
+Utilisateurs
+Se loguer sur firebase en ligne (inscription via le manager dans l’application web uniquement)
+Signaler les problèmes routiers à partir du map (utiliser leaflet et openstreetmap en ligne)
+Localisation
+Ajouter 1 ou plusieurs photos
+Afficher la carte et recap (cf fonctionnalités visiteurs)
+Mettre un filtre : afficher mes signalements uniquement
+Recevoir une notification à chaque changement de status de mes signalements.
+
+Dans le cas ou on utilise firebase, c'est du firebase gratuit et non payant
+donc utilisation des fonctionnalites gratuites.
+Fais a ce que l'application mobile fonctionne sur le web dans le navigateur durant le test.
+
+
+Je ne pas uploader ni creer une nouvelle alerte dans le mobile, et pour le storage dans firebase
+je n'est pas acces au storage de firebase qui demande une To use Storage, upgrade your project's billing plan.
+Donc pour l'upload si c'est impossible a faire avec firebase storage gratuit, fais en sorte que
+l'upload des images se fait en local dans l'application mobile pour le moment.
+La carte ne s'affiche toujours pas dans le mobile, corrige cela aussi, meme avec du connexion internet.
+Utilise seulement openstreetmap pour l'affichage de la carte, plus rapide et leger pour le mobile.
+Certaines fonts sont toujours invisibles a corriger, dans la creation du signalement et dans la liste des signalements.
+Quand j'appuie sur un icone de signalement, l'icone s'affiche en haut a gauche de l'ecran au lieu d'afficher les informations,
+Corrige tout cela. ET dans un fichier .md explicatif, explique comment faire pour les configurations firebase surtout pour
+le storage de meme pour l'authentification ajoute la fonctionnalite de 3 tentatives de connexion avant de bloquer l'utilisateur.
+Et le systeme de notification ce fait aussi via firebase.

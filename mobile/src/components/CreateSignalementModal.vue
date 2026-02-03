@@ -69,15 +69,22 @@
         <span v-if="errors.description" class="error-text">{{ errors.description }}</span>
       </div>
 
-      <!-- Photo -->
+      <!-- Photos (multiples) -->
       <div class="form-group">
-        <ion-label>Photo (optionnel)</ion-label>
+        <ion-label>Photos (optionnel - max 5)</ion-label>
         <div class="photo-section">
-          <div v-if="photoPreview" class="photo-preview">
-            <img :src="photoPreview" alt="Photo"/>
-            <ion-button fill="clear" size="small" @click="removePhoto">
-              <ion-icon :icon="closeCircleOutline"></ion-icon>
-            </ion-button>
+          <!-- Prévisualisation des photos -->
+          <div v-if="photoPreviews.length > 0" class="photos-preview-grid">
+            <div v-for="(photo, index) in photoPreviews" :key="index" class="photo-preview-item">
+              <img :src="photo" alt="Photo"/>
+              <ion-button fill="clear" size="small" @click="removePhoto(index)">
+                <ion-icon :icon="closeCircleOutline"></ion-icon>
+              </ion-button>
+            </div>
+            <!-- Bouton ajouter plus si moins de 5 photos -->
+            <div v-if="photoPreviews.length < 5" class="add-photo-btn" @click="showPhotoOptions = true">
+              <ion-icon :icon="addOutline"></ion-icon>
+            </div>
           </div>
           <div v-else class="photo-buttons">
             <ion-button expand="block" fill="outline" @click="takePhoto">
@@ -91,6 +98,14 @@
           </div>
         </div>
       </div>
+
+      <!-- Action Sheet pour ajouter plus de photos -->
+      <ion-action-sheet
+        :is-open="showPhotoOptions"
+        header="Ajouter une photo"
+        :buttons="photoActionButtons"
+        @didDismiss="showPhotoOptions = false"
+      ></ion-action-sheet>
     </ion-content>
   </ion-modal>
 </template>
@@ -110,13 +125,15 @@ import {
   IonTextarea,
   IonSelect,
   IonSelectOption,
-  IonIcon
+  IonIcon,
+  IonActionSheet
 } from '@ionic/vue';
 import {
   locationOutline,
   cameraOutline,
   imagesOutline,
-  closeCircleOutline
+  closeCircleOutline,
+  addOutline
 } from 'ionicons/icons';
 import {Camera, CameraResultType, CameraSource} from '@capacitor/camera';
 import {SIGNALEMENT_TYPES, type SignalementType, type CreateSignalementData} from '@/models';
@@ -131,8 +148,9 @@ const props = defineProps<Props>();
 const emit = defineEmits(['close', 'submit']);
 
 const loading = ref(false);
-const photoPreview = ref<string | null>(null);
-const photoBlob = ref<Blob | null>(null);
+const photoPreviews = ref<string[]>([]);
+const photoBlobs = ref<Blob[]>([]);
+const showPhotoOptions = ref(false);
 
 const form = ref({
   titre: '',
@@ -144,6 +162,28 @@ const errors = ref({
   titre: '',
   description: ''
 });
+
+// Boutons pour l'action sheet
+const photoActionButtons = [
+  {
+    text: 'Prendre une photo',
+    icon: cameraOutline,
+    handler: () => {
+      takePhoto();
+    }
+  },
+  {
+    text: 'Choisir une image',
+    icon: imagesOutline,
+    handler: () => {
+      pickPhoto();
+    }
+  },
+  {
+    text: 'Annuler',
+    role: 'cancel'
+  }
+];
 
 // Validation du formulaire
 const isFormValid = computed(() => {
@@ -164,8 +204,8 @@ watch(() => props.isOpen, (newVal) => {
       description: ''
     };
     errors.value = {titre: '', description: ''};
-    photoPreview.value = null;
-    photoBlob.value = null;
+    photoPreviews.value = [];
+    photoBlobs.value = [];
   }
 });
 
@@ -192,6 +232,8 @@ watch(() => form.value.description, (val) => {
 
 // Prendre une photo
 const takePhoto = async () => {
+  if (photoPreviews.value.length >= 5) return;
+
   try {
     const image = await Camera.getPhoto({
       quality: 80,
@@ -201,10 +243,11 @@ const takePhoto = async () => {
     });
 
     if (image.dataUrl) {
-      photoPreview.value = image.dataUrl;
+      photoPreviews.value.push(image.dataUrl);
       // Convertir en Blob pour l'upload
       const response = await fetch(image.dataUrl);
-      photoBlob.value = await response.blob();
+      const blob = await response.blob();
+      photoBlobs.value.push(blob);
     }
   } catch (error) {
     console.error('Erreur lors de la prise de photo:', error);
@@ -213,6 +256,8 @@ const takePhoto = async () => {
 
 // Choisir une image de la galerie
 const pickPhoto = async () => {
+  if (photoPreviews.value.length >= 5) return;
+
   try {
     const image = await Camera.getPhoto({
       quality: 80,
@@ -222,19 +267,20 @@ const pickPhoto = async () => {
     });
 
     if (image.dataUrl) {
-      photoPreview.value = image.dataUrl;
+      photoPreviews.value.push(image.dataUrl);
       const response = await fetch(image.dataUrl);
-      photoBlob.value = await response.blob();
+      const blob = await response.blob();
+      photoBlobs.value.push(blob);
     }
   } catch (error) {
     console.error('Erreur lors de la sélection de photo:', error);
   }
 };
 
-// Supprimer la photo
-const removePhoto = () => {
-  photoPreview.value = null;
-  photoBlob.value = null;
+// Supprimer une photo
+const removePhoto = (index: number) => {
+  photoPreviews.value.splice(index, 1);
+  photoBlobs.value.splice(index, 1);
 };
 
 // Fermer le modal
@@ -246,7 +292,7 @@ const handleDismiss = () => {
 const handleSubmit = () => {
   if (!isFormValid.value || !props.location) return;
 
-  const data: CreateSignalementData & { photoBlob?: Blob } = {
+  const data: CreateSignalementData & { photoBlobs?: Blob[] } = {
     titre: form.value.titre.trim(),
     type: form.value.type,
     description: form.value.description.trim(),
@@ -254,8 +300,8 @@ const handleSubmit = () => {
     longitude: props.location.lng
   };
 
-  if (photoBlob.value) {
-    data.photoBlob = photoBlob.value;
+  if (photoBlobs.value.length > 0) {
+    data.photoBlobs = photoBlobs.value;
   }
 
   emit('submit', data);
@@ -340,6 +386,59 @@ ion-input:focus-within, ion-textarea:focus-within {
 
 .photo-section {
   margin-top: 8px;
+}
+
+.photos-preview-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.photo-preview-item {
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+  aspect-ratio: 1;
+}
+
+.photo-preview-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.photo-preview-item ion-button {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  --color: white;
+  --background: rgba(0, 0, 0, 0.5);
+  --border-radius: 50%;
+  --padding-start: 4px;
+  --padding-end: 4px;
+  margin: 0;
+  width: 28px;
+  height: 28px;
+}
+
+.add-photo-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px dashed #D1D5DB;
+  border-radius: 12px;
+  background: #F9FAFB;
+  cursor: pointer;
+  aspect-ratio: 1;
+}
+
+.add-photo-btn ion-icon {
+  font-size: 24px;
+  color: #6B4FFF;
+}
+
+.add-photo-btn:active {
+  background: #E5E7EB;
 }
 
 .photo-preview {

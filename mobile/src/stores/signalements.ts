@@ -108,6 +108,17 @@ export const useSignalementsStore = defineStore('signalements', {
       }
     },
 
+    // Uploader plusieurs photos
+    async uploadMultiplePhotos(files: Blob[], signalementId: string): Promise<string[] | null> {
+      try {
+        const urls = await firebaseService.uploadMultiplePhotos(files, signalementId);
+        return urls;
+      } catch (error: any) {
+        this.error = error.message || 'Erreur lors de l\'upload des photos';
+        return null;
+      }
+    },
+
     // Sélectionner un signalement
     selectSignalement(signalement: Signalement | null): void {
       this.selectedSignalement = signalement;
