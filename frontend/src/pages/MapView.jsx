@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { signalementService } from '../services/signalement.api'
 import StatsPanel from '../components/StatsPanel'
 import Legend from '../components/Legend'
+import PhotoModal from '../components/PhotoModal'
 import './MapView.css'
 
 const MapView = () => {
@@ -18,6 +19,11 @@ const MapView = () => {
   const [mapLoaded, setMapLoaded] = useState(false)
   const markersRef = useRef([])
   const popupRef = useRef(null)
+  
+  // État pour le modal des photos
+  const [photoModalOpen, setPhotoModalOpen] = useState(false)
+  const [selectedPhotos, setSelectedPhotos] = useState([])
+  const [selectedPhotoTitle, setSelectedPhotoTitle] = useState('')
 
   // Vérifier si l'utilisateur est manager
   const isManager = user?.role === 'manager' || user?.email === 'manager@cloudmap.local'
@@ -89,6 +95,24 @@ const MapView = () => {
     }
     return classes[statut] || ''
   }
+
+  // Fonction pour ouvrir le modal des photos
+  const openPhotoModal = (signalementId) => {
+    const signalement = signalements.find(s => s.id === signalementId)
+    if (signalement && signalement.photos && signalement.photos.length > 0) {
+      setSelectedPhotos(signalement.photos)
+      setSelectedPhotoTitle(signalement.titre)
+      setPhotoModalOpen(true)
+    }
+  }
+
+  // Rendre la fonction accessible globalement pour les popups
+  useEffect(() => {
+    window.openPhotoModal = openPhotoModal
+    return () => {
+      delete window.openPhotoModal
+    }
+  }, [signalements])
 
   // Charger les données
   useEffect(() => {
@@ -182,6 +206,7 @@ const MapView = () => {
         <div class="marker-popup">
           <div class="popup-header">
             <span class="popup-status ${getStatusClass(signalement.statut)}">${getStatusLabel(signalement.statut)}</span>
+            <span class="popup-avancement">${signalement.avancement || 0}%</span>
           </div>
           <h3 class="popup-title">${signalement.titre}</h3>
           ${signalement.description ? `<p class="popup-desc">${signalement.description}</p>` : ''}
@@ -202,6 +227,18 @@ const MapView = () => {
               <span class="popup-label">🏢 Entreprise</span>
               <span class="popup-value">${signalement.entreprise || 'Non assignée'}</span>
             </div>
+          </div>
+          ${signalement.photos && signalement.photos.length > 0 ? `
+            <div class="popup-photos">
+              <a href="#" class="popup-photos-link" onclick="window.openPhotoModal(${signalement.id}); return false;">
+                📷 Voir les photos (${signalement.photos.length})
+              </a>
+            </div>
+          ` : ''}
+          <div class="popup-dates">
+            ${signalement.date_nouveau ? `<div class="date-item"><span class="date-label">🔴 Signalé:</span> ${formatDate(signalement.date_nouveau)}</div>` : ''}
+            ${signalement.date_en_cours ? `<div class="date-item"><span class="date-label">🟡 Démarré:</span> ${formatDate(signalement.date_en_cours)}</div>` : ''}
+            ${signalement.date_termine ? `<div class="date-item"><span class="date-label">🟢 Terminé:</span> ${formatDate(signalement.date_termine)}</div>` : ''}
           </div>
         </div>
       `
@@ -301,6 +338,14 @@ const MapView = () => {
           <p>Chargement des données...</p>
         </div>
       )}
+
+      {/* Modal des photos */}
+      <PhotoModal 
+        photos={selectedPhotos}
+        isOpen={photoModalOpen}
+        onClose={() => setPhotoModalOpen(false)}
+        title={selectedPhotoTitle}
+      />
     </div>
   )
 }
