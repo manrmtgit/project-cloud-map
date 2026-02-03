@@ -1,27 +1,67 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { signalementService } from '../services/signalement.api';
+import { useAuth } from '../context/AuthContext';
 import './ManagerView.css';
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+
 const ManagerView = () => {
+  const { user, logout } = useAuth();
   const [signalements, setSignalements] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedSignalement, setSelectedSignalement] = useState(null);
   const [filter, setFilter] = useState('all');
+  const [showMyOnly, setShowMyOnly] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [editData, setEditData] = useState({});
+  
+  // État pour les photos
+  const [selectedPhotos, setSelectedPhotos] = useState([]);
+  const [uploadingPhotos, setUploadingPhotos] = useState(false);
+  const [showPhotoModal, setShowPhotoModal] = useState(false);
+  const fileInputRef = useRef(null);
+  
+  // État pour les statistiques détaillées
+  const [detailedStats, setDetailedStats] = useState(null);
+  const [showStatsPanel, setShowStatsPanel] = useState(false);
+  
+  // État pour les notifications
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [showNotifications, setShowNotifications] = useState(false);
+  
+  // État pour le formulaire d'ajout
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [quartiers, setQuartiers] = useState([]);
+  const [addFormData, setAddFormData] = useState({
+    titre: '',
+    description: '',
+    latitude: '',
+    longitude: '',
+    surface_m2: '',
+    budget: '',
+    entreprise: ''
+  });
+  const [addPhotos, setAddPhotos] = useState([]);
+  const [suggesting, setSuggesting] = useState(false);
 
   const statusOptions = ['NOUVEAU', 'EN_COURS', 'TERMINE'];
 
   useEffect(() => {
     loadSignalements();
-  }, []);
+    loadDetailedStats();
+    if (user?.id) {
+      loadNotifications();
+    }
+  }, [user]);
 
   const loadSignalements = async () => {
     try {
       setLoading(true);
-      const data = await signalementService.getAll();
+      const userId = showMyOnly && user?.id ? user.id : null;
+      const data = await signalementService.getAll(null, userId);
       setSignalements(data);
     } catch (error) {
       console.error('Erreur chargement:', error);
@@ -30,12 +70,41 @@ const ManagerView = () => {
     }
   };
 
+  const loadDetailedStats = async () => {
+    try {
+      const stats = await signalementService.getDetailedStats();
+      setDetailedStats(stats);
+    } catch (error) {
+      console.error('Erreur chargement stats:', error);
+    }
+  };
+
+  const loadNotifications = async () => {
+    try {
+      const data = await signalementService.getNotifications(user.id);
+      setNotifications(data.notifications || []);
+      setUnreadCount(data.unread_count || 0);
+    } catch (error) {
+      console.error('Erreur chargement notifications:', error);
+    }
+  };
+
+  const handleMarkAllRead = async () => {
+    try {
+      await signalementService.markAllNotificationsRead(user.id);
+      setUnreadCount(0);
+      setNotifications(notifications.map(n => ({ ...n, lu: true })));
+    } catch (error) {
+      console.error('Erreur:', error);
+    }
+  };
+
   const handleSync = async () => {
     setSyncing(true);
     try {
-      // Simulation d'une synchronisation
-      await new Promise(resolve => setTimeout(resolve, 2000));
       await loadSignalements();
+      await loadDetailedStats();
+      if (user?.id) await loadNotifications();
       alert('Synchronisation réussie !');
     } catch (error) {
       alert('Erreur lors de la synchronisation');
@@ -47,6 +116,7 @@ const ManagerView = () => {
   const handleEdit = (signalement) => {
     setSelectedSignalement(signalement);
     setEditData({
+      titre: signalement.titre,
       description: signalement.description,
       statut: signalement.statut,
       surface_m2: signalement.surface_m2 || '',
@@ -58,7 +128,10 @@ const ManagerView = () => {
 
   const handleSave = async () => {
     try {
-      await signalementService.update(selectedSignalement.id, editData);
+      await signalementService.update(selectedSignalement.id, {
+        ...editData,
+        user_id_modifier: user?.id
+      });
       await loadSignalements();
       setEditMode(false);
       setSelectedSignalement(null);
@@ -66,6 +139,43 @@ const ManagerView = () => {
     } catch (error) {
       console.error('Erreur mise à jour:', error);
       alert('Erreur lors de la mise à jour');
+    }
+  };
+
+  // Upload de photos
+  const handlePhotoSelect = (e) => {
+    const files = Array.from(e.target.files);
+    setSelectedPhotos(files);
+  };
+
+  const handlePhotoUpload = async () => {
+    if (!selectedSignalement || selectedPhotos.length === 0) return;
+    
+    setUploadingPhotos(true);
+    try {
+      await signalementService.uploadPhotos(selectedSignalement.id, selectedPhotos);
+      setSelectedPhotos([]);
+      await loadSignalements();
+      // Recharger le signalement sélectionné
+      const updated = await signalementService.getById(selectedSignalement.id);
+      setSelectedSignalement(updated);
+      alert('Photos ajoutées avec succès !');
+    } catch (error) {
+      console.error('Erreur upload:', error);
+      alert('Erreur lors de l\'upload des photos');
+    } finally {
+      setUploadingPhotos(false);
+    }
+  };
+
+  const handleDeletePhoto = async (photoId) => {
+    if (!window.confirm('Supprimer cette photo ?')) return;
+    try {
+      await signalementService.deletePhoto(photoId);
+      const updated = await signalementService.getById(selectedSignalement.id);
+      setSelectedSignalement(updated);
+    } catch (error) {
+      console.error('Erreur suppression photo:', error);
     }
   };
 
@@ -80,6 +190,91 @@ const ManagerView = () => {
         console.error('Erreur suppression:', error);
         alert('Erreur lors de la suppression');
       }
+    }
+  };
+
+  // Calcul de l'avancement
+  const getAvancement = (statut) => {
+    switch (statut) {
+      case 'NOUVEAU': return 0;
+      case 'EN_COURS': return 50;
+      case 'TERMINE': return 100;
+      default: return 0;
+    }
+  };
+
+  // Gestion du formulaire d'ajout
+  const handleSuggestCoordinates = async () => {
+    setSuggesting(true);
+    try {
+      const data = await signalementService.suggestCoordinates();
+      if (data.success) {
+        setAddFormData(prev => ({
+          ...prev,
+          latitude: data.suggestion.latitude,
+          longitude: data.suggestion.longitude,
+          titre: prev.titre || `Signalement - ${data.suggestion.quartier}`
+        }));
+        setQuartiers(data.quartiers || []);
+      }
+    } catch (error) {
+      console.error('Erreur suggestion:', error);
+      alert('Erreur lors de la suggestion de coordonnées');
+    } finally {
+      setSuggesting(false);
+    }
+  };
+
+  const handleSelectQuartier = (quartier) => {
+    // Ajouter une petite variation aléatoire
+    const latOffset = (Math.random() - 0.5) * 0.003;
+    const lngOffset = (Math.random() - 0.5) * 0.003;
+    setAddFormData(prev => ({
+      ...prev,
+      latitude: (quartier.latitude + latOffset).toFixed(6),
+      longitude: (quartier.longitude + lngOffset).toFixed(6),
+      titre: prev.titre || `Signalement - ${quartier.nom}`
+    }));
+  };
+
+  const handleAddSubmit = async (e) => {
+    e.preventDefault();
+    if (!addFormData.titre || !addFormData.latitude || !addFormData.longitude) {
+      alert('Veuillez remplir le titre et les coordonnées');
+      return;
+    }
+    try {
+      const newSignalement = await signalementService.create({
+        ...addFormData,
+        latitude: parseFloat(addFormData.latitude),
+        longitude: parseFloat(addFormData.longitude),
+        surface_m2: addFormData.surface_m2 ? parseFloat(addFormData.surface_m2) : null,
+        budget: addFormData.budget ? parseFloat(addFormData.budget) : null,
+        user_id: user?.id
+      });
+      
+      // Upload des photos si présentes
+      if (addPhotos.length > 0 && newSignalement?.id) {
+        await signalementService.uploadPhotos(newSignalement.id, addPhotos);
+      }
+      
+      await loadSignalements();
+      setShowAddForm(false);
+      setAddFormData({
+        titre: '',
+        description: '',
+        latitude: '',
+        longitude: '',
+        surface_m2: '',
+        budget: '',
+        entreprise: ''
+      });
+      setAddPhotos([]);
+      setQuartiers([]);
+      alert('Signalement créé avec succès !');
+    } catch (error) {
+      console.error('Erreur création:', error);
+      alert('Erreur lors de la création du signalement');
     }
   };
 
@@ -128,8 +323,24 @@ const ManagerView = () => {
         <div className="header-left">
           <h1>🛠️ Interface Manager</h1>
           <span className="badge">Manager</span>
+          {user && <span className="user-info">👤 {user.name || user.email}</span>}
         </div>
         <div className="header-right">
+          <button 
+            className="btn-add"
+            onClick={() => setShowAddForm(true)}
+          >
+            ➕ Nouveau signalement
+          </button>
+          <Link to="/stats" className="btn-stats-page">
+            📊 Statistiques
+          </Link>
+          <button 
+            className="btn-notifications"
+            onClick={() => setShowNotifications(!showNotifications)}
+          >
+            🔔 {unreadCount > 0 && <span className="notif-badge">{unreadCount}</span>}
+          </button>
           <Link to="/" className="btn-back">
             ← Retour à la carte
           </Link>
@@ -140,8 +351,235 @@ const ManagerView = () => {
           >
             {syncing ? '🔄 Synchronisation...' : '🔄 Synchroniser'}
           </button>
+          <button className="btn-logout" onClick={logout}>
+            🚪 Déconnexion
+          </button>
         </div>
       </header>
+
+      {/* Panel de notifications */}
+      {showNotifications && (
+        <div className="notifications-panel">
+          <div className="notif-header">
+            <h3>🔔 Notifications</h3>
+            {unreadCount > 0 && (
+              <button onClick={handleMarkAllRead} className="btn-mark-read">
+                Tout marquer comme lu
+              </button>
+            )}
+          </div>
+          <div className="notif-list">
+            {notifications.length === 0 ? (
+              <p className="no-notif">Aucune notification</p>
+            ) : (
+              notifications.map(n => (
+                <div key={n.id} className={`notif-item ${n.lu ? '' : 'unread'}`}>
+                  <span className="notif-message">{n.message}</span>
+                  <span className="notif-date">{formatDate(n.date_creation)}</span>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Panel de statistiques détaillées */}
+      {showStatsPanel && detailedStats && (
+        <div className="stats-panel-detailed">
+          <h3>📊 Tableau de Statistiques - Délais de Traitement</h3>
+          <div className="stats-grid">
+            <div className="stat-card">
+              <h4>⏱️ Délai Moyen Total</h4>
+              <p className="stat-value">{detailedStats.delais?.moyen_total_jours || 'N/A'} jours</p>
+            </div>
+            <div className="stat-card">
+              <h4>🚀 Délai Démarrage</h4>
+              <p className="stat-value">{detailedStats.delais?.demarrage_moyen_jours || 'N/A'} jours</p>
+              <p className="stat-desc">Du signalement au démarrage</p>
+            </div>
+            <div className="stat-card">
+              <h4>🔧 Délai Travaux</h4>
+              <p className="stat-value">{detailedStats.delais?.travaux_moyen_jours || 'N/A'} jours</p>
+              <p className="stat-desc">Du démarrage à la fin</p>
+            </div>
+            <div className="stat-card">
+              <h4>📈 Min / Max</h4>
+              <p className="stat-value">{detailedStats.delais?.min_jours || 'N/A'} - {detailedStats.delais?.max_jours || 'N/A'} jours</p>
+            </div>
+          </div>
+          
+          {detailedStats.par_entreprise && (
+            <div className="stats-table">
+              <h4>🏢 Performance par Entreprise</h4>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Entreprise</th>
+                    <th>Total</th>
+                    <th>Terminés</th>
+                    <th>Délai Moyen</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {detailedStats.par_entreprise.map((e, i) => (
+                    <tr key={i}>
+                      <td>{e.entreprise}</td>
+                      <td>{e.total}</td>
+                      <td>{e.termines}</td>
+                      <td>{e.delai_moyen ? `${parseFloat(e.delai_moyen).toFixed(1)} j` : 'N/A'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Modal d'ajout de signalement */}
+      {showAddForm && (
+        <div className="modal-overlay" onClick={() => setShowAddForm(false)}>
+          <div className="modal-content add-form-modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>➕ Nouveau signalement</h2>
+              <button className="btn-close" onClick={() => setShowAddForm(false)}>✕</button>
+            </div>
+            
+            <form onSubmit={handleAddSubmit} className="add-form">
+              <div className="form-group">
+                <label>Titre *</label>
+                <input
+                  type="text"
+                  value={addFormData.titre}
+                  onChange={(e) => setAddFormData({...addFormData, titre: e.target.value})}
+                  placeholder="Ex: Nid de poule rue..."
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Description</label>
+                <textarea
+                  value={addFormData.description}
+                  onChange={(e) => setAddFormData({...addFormData, description: e.target.value})}
+                  rows={3}
+                  placeholder="Décrivez le problème..."
+                />
+              </div>
+
+              <div className="coordinates-section">
+                <div className="coordinates-header">
+                  <label>📍 Coordonnées *</label>
+                  <button 
+                    type="button" 
+                    className="btn-suggest"
+                    onClick={handleSuggestCoordinates}
+                    disabled={suggesting}
+                  >
+                    {suggesting ? '⏳ Recherche...' : '🎯 Suggérer automatiquement'}
+                  </button>
+                </div>
+                
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Latitude</label>
+                    <input
+                      type="number"
+                      step="0.000001"
+                      value={addFormData.latitude}
+                      onChange={(e) => setAddFormData({...addFormData, latitude: e.target.value})}
+                      placeholder="-18.9100"
+                      required
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Longitude</label>
+                    <input
+                      type="number"
+                      step="0.000001"
+                      value={addFormData.longitude}
+                      onChange={(e) => setAddFormData({...addFormData, longitude: e.target.value})}
+                      placeholder="47.5250"
+                      required
+                    />
+                  </div>
+                </div>
+
+                {quartiers.length > 0 && (
+                  <div className="quartiers-grid">
+                    <label>Ou choisissez un quartier :</label>
+                    <div className="quartiers-buttons">
+                      {quartiers.map(q => (
+                        <button
+                          key={q.nom}
+                          type="button"
+                          className="btn-quartier"
+                          onClick={() => handleSelectQuartier(q)}
+                        >
+                          📍 {q.nom}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Surface (m²)</label>
+                  <input
+                    type="number"
+                    value={addFormData.surface_m2}
+                    onChange={(e) => setAddFormData({...addFormData, surface_m2: e.target.value})}
+                    placeholder="Ex: 50"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Budget (Ar)</label>
+                  <input
+                    type="number"
+                    value={addFormData.budget}
+                    onChange={(e) => setAddFormData({...addFormData, budget: e.target.value})}
+                    placeholder="Ex: 5000000"
+                  />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label>Entreprise assignée</label>
+                <input
+                  type="text"
+                  value={addFormData.entreprise}
+                  onChange={(e) => setAddFormData({...addFormData, entreprise: e.target.value})}
+                  placeholder="Nom de l'entreprise (optionnel)"
+                />
+              </div>
+
+              <div className="form-group">
+                <label>📷 Photos (optionnel)</label>
+                <input
+                  type="file"
+                  multiple
+                  accept="image/*"
+                  onChange={(e) => setAddPhotos(Array.from(e.target.files))}
+                />
+                {addPhotos.length > 0 && (
+                  <p className="photos-count">{addPhotos.length} photo(s) sélectionnée(s)</p>
+                )}
+              </div>
+
+              <div className="form-actions">
+                <button type="button" className="btn-cancel" onClick={() => setShowAddForm(false)}>
+                  Annuler
+                </button>
+                <button type="submit" className="btn-save">
+                  ✅ Créer le signalement
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Main Content */}
       <div className="manager-content">
@@ -149,16 +587,30 @@ const ManagerView = () => {
         <div className="list-panel">
           <div className="panel-header">
             <h2>Signalements ({filteredSignalements.length})</h2>
-            <select 
-              value={filter} 
-              onChange={(e) => setFilter(e.target.value)}
-              className="filter-select"
-            >
-              <option value="all">Tous les statuts</option>
-              <option value="NOUVEAU">Nouveau</option>
-              <option value="EN_COURS">En cours</option>
-              <option value="TERMINE">Terminé</option>
-            </select>
+            <div className="filters-row">
+              <select 
+                value={filter} 
+                onChange={(e) => setFilter(e.target.value)}
+                className="filter-select"
+              >
+                <option value="all">Tous les statuts</option>
+                <option value="NOUVEAU">Nouveau</option>
+                <option value="EN_COURS">En cours</option>
+                <option value="TERMINE">Terminé</option>
+              </select>
+              <label className="checkbox-filter">
+                <input 
+                  type="checkbox" 
+                  checked={showMyOnly}
+                  onChange={(e) => {
+                    setShowMyOnly(e.target.checked);
+                    // Recharger avec le nouveau filtre
+                    setTimeout(loadSignalements, 0);
+                  }}
+                />
+                Mes signalements uniquement
+              </label>
+            </div>
           </div>
           
           <div className="signalement-list">
@@ -170,6 +622,7 @@ const ManagerView = () => {
               >
                 <div className="card-header">
                   <span className="card-id">#{s.id}</span>
+                  <span className="card-avancement">{s.avancement || getAvancement(s.statut)}%</span>
                   {getStatusBadge(s.statut)}
                 </div>
                 <p className="card-description">{s.description}</p>
@@ -288,6 +741,88 @@ const ManagerView = () => {
                   <div className="detail-item">
                     <span className="label">🏢 Entreprise</span>
                     <span className="value">{selectedSignalement.entreprise || 'Non assigné'}</span>
+                  </div>
+                  <div className="detail-item">
+                    <span className="label">📊 Avancement</span>
+                    <span className="value avancement-badge">{selectedSignalement.avancement || getAvancement(selectedSignalement.statut)}%</span>
+                  </div>
+                </div>
+
+                {/* Section dates d'avancement */}
+                <div className="detail-section">
+                  <h3>📆 Historique d'avancement</h3>
+                  <div className="dates-timeline">
+                    <div className={`date-step ${selectedSignalement.date_nouveau ? 'completed' : ''}`}>
+                      <span className="step-label">Nouveau (0%)</span>
+                      <span className="step-date">{selectedSignalement.date_nouveau ? formatDate(selectedSignalement.date_nouveau) : '-'}</span>
+                    </div>
+                    <div className={`date-step ${selectedSignalement.date_en_cours ? 'completed' : ''}`}>
+                      <span className="step-label">En cours (50%)</span>
+                      <span className="step-date">{selectedSignalement.date_en_cours ? formatDate(selectedSignalement.date_en_cours) : '-'}</span>
+                    </div>
+                    <div className={`date-step ${selectedSignalement.date_termine ? 'completed' : ''}`}>
+                      <span className="step-label">Terminé (100%)</span>
+                      <span className="step-date">{selectedSignalement.date_termine ? formatDate(selectedSignalement.date_termine) : '-'}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Section Photos */}
+                <div className="detail-section">
+                  <h3>📷 Photos ({selectedSignalement.photos?.length || 0})</h3>
+                  
+                  {/* Galerie de photos existantes */}
+                  {selectedSignalement.photos && selectedSignalement.photos.length > 0 ? (
+                    <div className="photos-gallery">
+                      {selectedSignalement.photos.map((photo, idx) => (
+                        <div key={photo.id || idx} className="photo-item">
+                          <img 
+                            src={`${API_URL}/uploads/${photo.filename || photo.nom_fichier}`} 
+                            alt={`Photo ${idx + 1}`}
+                            onClick={() => window.open(`${API_URL}/uploads/${photo.filename || photo.nom_fichier}`, '_blank')}
+                          />
+                          <button 
+                            className="btn-delete-photo"
+                            onClick={() => handleDeletePhoto(photo.id)}
+                            title="Supprimer cette photo"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="no-photos">Aucune photo pour ce signalement</p>
+                  )}
+
+                  {/* Upload de nouvelles photos */}
+                  <div className="photo-upload-section">
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      multiple
+                      accept="image/*"
+                      onChange={handlePhotoSelect}
+                      style={{ display: 'none' }}
+                    />
+                    <button 
+                      className="btn-upload"
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      📁 Sélectionner des photos
+                    </button>
+                    {selectedPhotos.length > 0 && (
+                      <div className="selected-photos-info">
+                        <span>{selectedPhotos.length} photo(s) sélectionnée(s)</span>
+                        <button 
+                          className="btn-confirm-upload"
+                          onClick={handlePhotoUpload}
+                          disabled={uploadingPhotos}
+                        >
+                          {uploadingPhotos ? '⏳ Upload...' : '✅ Confirmer l\'upload'}
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
 

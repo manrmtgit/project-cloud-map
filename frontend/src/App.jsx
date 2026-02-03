@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider, useAuth } from './context/AuthContext'
 import MapView from './pages/MapView'
 import ManagerView from './pages/ManagerView'
+import StatsPage from './pages/StatsPage'
 import Login from './pages/Login'
 import Register from './pages/Register'
 import Profile from './pages/Profile'
@@ -63,6 +64,7 @@ function AppContent() {
       {/* Routes Manager uniquement */}
       <Route path="/manager" element={<ManagerRoute><ManagerView /></ManagerRoute>} />
       <Route path="/dashboard" element={<ManagerRoute><Dashboard /></ManagerRoute>} />
+      <Route path="/stats" element={<ManagerRoute><StatsPage /></ManagerRoute>} />
       
       {/* Redirection par défaut */}
       <Route path="*" element={<Navigate to="/" />} />
