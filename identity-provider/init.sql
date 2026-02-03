@@ -7,6 +7,10 @@
 -- on utilise latitude/longitude directement
 
 -- =========================
+-- Enable pgcrypto functions (used for gen_random_uuid, crypt, gen_salt)
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+-- =========================
 -- ANCIEN SCHEMA (users)
 -- =========================
 CREATE TABLE IF NOT EXISTS users (
@@ -19,6 +23,17 @@ CREATE TABLE IF NOT EXISTS users (
 );
 
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+
+-- Insert a seeded manager user for testing (password will be hashed using pgcrypto's crypt())
+-- Credentials: email: manager@cloudmap.local  password: Manager123!
+INSERT INTO users (email, password, name)
+VALUES (
+    'manager@cloudmap.local',
+    -- Hash the password with bcrypt using gen_salt('bf') if pgcrypto is available
+    crypt('Manager123!', gen_salt('bf')),
+    'Manager'
+)
+ON CONFLICT (email) DO NOTHING;
 
 -- =========================
 -- ROLES

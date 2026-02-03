@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { signalementService } from '../services/signalement.api';
+import { useAuth } from '../context/AuthContext';
 import './ManagerView.css';
 
 const ManagerView = () => {
+  const { user, logout } = useAuth();
   const [signalements, setSignalements] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedSignalement, setSelectedSignalement] = useState(null);
@@ -11,6 +13,20 @@ const ManagerView = () => {
   const [syncing, setSyncing] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [editData, setEditData] = useState({});
+  
+  // État pour le formulaire d'ajout
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [quartiers, setQuartiers] = useState([]);
+  const [addFormData, setAddFormData] = useState({
+    titre: '',
+    description: '',
+    latitude: '',
+    longitude: '',
+    surface_m2: '',
+    budget: '',
+    entreprise: ''
+  });
+  const [suggesting, setSuggesting] = useState(false);
 
   const statusOptions = ['NOUVEAU', 'EN_COURS', 'TERMINE'];
 
@@ -83,6 +99,73 @@ const ManagerView = () => {
     }
   };
 
+  // Gestion du formulaire d'ajout
+  const handleSuggestCoordinates = async () => {
+    setSuggesting(true);
+    try {
+      const data = await signalementService.suggestCoordinates();
+      if (data.success) {
+        setAddFormData(prev => ({
+          ...prev,
+          latitude: data.suggestion.latitude,
+          longitude: data.suggestion.longitude,
+          titre: prev.titre || `Signalement - ${data.suggestion.quartier}`
+        }));
+        setQuartiers(data.quartiers || []);
+      }
+    } catch (error) {
+      console.error('Erreur suggestion:', error);
+      alert('Erreur lors de la suggestion de coordonnées');
+    } finally {
+      setSuggesting(false);
+    }
+  };
+
+  const handleSelectQuartier = (quartier) => {
+    // Ajouter une petite variation aléatoire
+    const latOffset = (Math.random() - 0.5) * 0.003;
+    const lngOffset = (Math.random() - 0.5) * 0.003;
+    setAddFormData(prev => ({
+      ...prev,
+      latitude: (quartier.latitude + latOffset).toFixed(6),
+      longitude: (quartier.longitude + lngOffset).toFixed(6),
+      titre: prev.titre || `Signalement - ${quartier.nom}`
+    }));
+  };
+
+  const handleAddSubmit = async (e) => {
+    e.preventDefault();
+    if (!addFormData.titre || !addFormData.latitude || !addFormData.longitude) {
+      alert('Veuillez remplir le titre et les coordonnées');
+      return;
+    }
+    try {
+      await signalementService.create({
+        ...addFormData,
+        latitude: parseFloat(addFormData.latitude),
+        longitude: parseFloat(addFormData.longitude),
+        surface_m2: addFormData.surface_m2 ? parseFloat(addFormData.surface_m2) : null,
+        budget: addFormData.budget ? parseFloat(addFormData.budget) : null
+      });
+      await loadSignalements();
+      setShowAddForm(false);
+      setAddFormData({
+        titre: '',
+        description: '',
+        latitude: '',
+        longitude: '',
+        surface_m2: '',
+        budget: '',
+        entreprise: ''
+      });
+      setQuartiers([]);
+      alert('Signalement créé avec succès !');
+    } catch (error) {
+      console.error('Erreur création:', error);
+      alert('Erreur lors de la création du signalement');
+    }
+  };
+
   const getStatusBadge = (statut) => {
     const classes = {
       'NOUVEAU': 'status-nouveau',
@@ -128,8 +211,15 @@ const ManagerView = () => {
         <div className="header-left">
           <h1>🛠️ Interface Manager</h1>
           <span className="badge">Manager</span>
+          {user && <span className="user-info">👤 {user.name || user.email}</span>}
         </div>
         <div className="header-right">
+          <button 
+            className="btn-add"
+            onClick={() => setShowAddForm(true)}
+          >
+            ➕ Nouveau signalement
+          </button>
           <Link to="/" className="btn-back">
             ← Retour à la carte
           </Link>
@@ -140,8 +230,143 @@ const ManagerView = () => {
           >
             {syncing ? '🔄 Synchronisation...' : '🔄 Synchroniser'}
           </button>
+          <button className="btn-logout" onClick={logout}>
+            🚪 Déconnexion
+          </button>
         </div>
       </header>
+
+      {/* Modal d'ajout de signalement */}
+      {showAddForm && (
+        <div className="modal-overlay" onClick={() => setShowAddForm(false)}>
+          <div className="modal-content add-form-modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>➕ Nouveau signalement</h2>
+              <button className="btn-close" onClick={() => setShowAddForm(false)}>✕</button>
+            </div>
+            
+            <form onSubmit={handleAddSubmit} className="add-form">
+              <div className="form-group">
+                <label>Titre *</label>
+                <input
+                  type="text"
+                  value={addFormData.titre}
+                  onChange={(e) => setAddFormData({...addFormData, titre: e.target.value})}
+                  placeholder="Ex: Nid de poule rue..."
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Description</label>
+                <textarea
+                  value={addFormData.description}
+                  onChange={(e) => setAddFormData({...addFormData, description: e.target.value})}
+                  rows={3}
+                  placeholder="Décrivez le problème..."
+                />
+              </div>
+
+              <div className="coordinates-section">
+                <div className="coordinates-header">
+                  <label>📍 Coordonnées *</label>
+                  <button 
+                    type="button" 
+                    className="btn-suggest"
+                    onClick={handleSuggestCoordinates}
+                    disabled={suggesting}
+                  >
+                    {suggesting ? '⏳ Recherche...' : '🎯 Suggérer automatiquement'}
+                  </button>
+                </div>
+                
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Latitude</label>
+                    <input
+                      type="number"
+                      step="0.000001"
+                      value={addFormData.latitude}
+                      onChange={(e) => setAddFormData({...addFormData, latitude: e.target.value})}
+                      placeholder="-18.9100"
+                      required
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Longitude</label>
+                    <input
+                      type="number"
+                      step="0.000001"
+                      value={addFormData.longitude}
+                      onChange={(e) => setAddFormData({...addFormData, longitude: e.target.value})}
+                      placeholder="47.5250"
+                      required
+                    />
+                  </div>
+                </div>
+
+                {quartiers.length > 0 && (
+                  <div className="quartiers-grid">
+                    <label>Ou choisissez un quartier :</label>
+                    <div className="quartiers-buttons">
+                      {quartiers.map(q => (
+                        <button
+                          key={q.nom}
+                          type="button"
+                          className="btn-quartier"
+                          onClick={() => handleSelectQuartier(q)}
+                        >
+                          📍 {q.nom}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Surface (m²)</label>
+                  <input
+                    type="number"
+                    value={addFormData.surface_m2}
+                    onChange={(e) => setAddFormData({...addFormData, surface_m2: e.target.value})}
+                    placeholder="Ex: 50"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Budget (Ar)</label>
+                  <input
+                    type="number"
+                    value={addFormData.budget}
+                    onChange={(e) => setAddFormData({...addFormData, budget: e.target.value})}
+                    placeholder="Ex: 5000000"
+                  />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label>Entreprise assignée</label>
+                <input
+                  type="text"
+                  value={addFormData.entreprise}
+                  onChange={(e) => setAddFormData({...addFormData, entreprise: e.target.value})}
+                  placeholder="Nom de l'entreprise (optionnel)"
+                />
+              </div>
+
+              <div className="form-actions">
+                <button type="button" className="btn-cancel" onClick={() => setShowAddForm(false)}>
+                  Annuler
+                </button>
+                <button type="submit" className="btn-save">
+                  ✅ Créer le signalement
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Main Content */}
       <div className="manager-content">

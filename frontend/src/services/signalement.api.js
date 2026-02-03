@@ -46,6 +46,12 @@ export const signalementService = {
   delete: async (id) => {
     const response = await api.delete(`/api/signalements/${id}`)
     return response.data
+  },
+
+  // Suggérer des coordonnées (quartiers)
+  suggestCoordinates: async () => {
+    const response = await api.get('/api/signalements/suggest-coordinates')
+    return response.data
   }
 }
 

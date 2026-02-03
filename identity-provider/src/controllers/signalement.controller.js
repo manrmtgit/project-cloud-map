@@ -228,11 +228,63 @@ const deleteSignalement = async (req, res) => {
     }
 };
 
+// Suggérer des coordonnées (quartiers d'Antananarivo)
+const suggestCoordinates = async (req, res) => {
+    try {
+        // Quartiers d'Antananarivo avec leurs coordonnées approximatives
+        const quartiers = [
+            { nom: 'Analakely', lat: -18.9100, lng: 47.5250 },
+            { nom: 'Mahamasina', lat: -18.9200, lng: 47.5200 },
+            { nom: 'Ivandry', lat: -18.8850, lng: 47.5350 },
+            { nom: 'Ankadifotsy', lat: -18.9200, lng: 47.5100 },
+            { nom: 'Ambohijatovo', lat: -18.9080, lng: 47.5280 },
+            { nom: 'Ampefiloha', lat: -18.9180, lng: 47.5150 },
+            { nom: 'Tsaralalana', lat: -18.9120, lng: 47.5300 },
+            { nom: 'Antanimena', lat: -18.9050, lng: 47.5220 },
+            { nom: 'Andravoahangy', lat: -18.9020, lng: 47.5380 },
+            { nom: '67 Ha', lat: -18.9150, lng: 47.5380 },
+            { nom: 'Ankorondrano', lat: -18.8900, lng: 47.5280 },
+            { nom: 'Behoririka', lat: -18.9070, lng: 47.5170 }
+        ];
+
+        // Choisir un quartier aléatoire
+        const quartier = quartiers[Math.floor(Math.random() * quartiers.length)];
+        
+        // Ajouter une petite variation aléatoire aux coordonnées
+        const latOffset = (Math.random() - 0.5) * 0.005;
+        const lngOffset = (Math.random() - 0.5) * 0.005;
+
+        const suggestion = {
+            latitude: parseFloat((quartier.lat + latOffset).toFixed(6)),
+            longitude: parseFloat((quartier.lng + lngOffset).toFixed(6)),
+            quartier: quartier.nom,
+            adresse_suggeree: `${quartier.nom}, Antananarivo`
+        };
+
+        res.json({
+            success: true,
+            suggestion,
+            quartiers: quartiers.map(q => ({
+                nom: q.nom,
+                latitude: q.lat,
+                longitude: q.lng
+            }))
+        });
+    } catch (error) {
+        console.error('Erreur suggestCoordinates:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Erreur lors de la suggestion de coordonnées' 
+        });
+    }
+};
+
 module.exports = {
     getAllSignalements,
     getStats,
     getSignalementById,
     createSignalement,
     updateSignalement,
-    deleteSignalement
+    deleteSignalement,
+    suggestCoordinates
 };
