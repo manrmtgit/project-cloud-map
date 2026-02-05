@@ -1,0 +1,40 @@
+# Dependencies
+node_modules/
+package-lock.json
+yarn.lock
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Firebase service account (NEVER COMMIT)
+identity-provider/config/firebase-service-account.json
+*/config/firebase-service-account.json
+
+# Build outputs
+dist/
+build/
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Docker
+.docker/
+
+# Uploads
+identity-provider/uploads/
+*/uploads/
+
+# Database
+*.db
+*.sqlite
+
+# Cache
+.cache/
+.eslintcache

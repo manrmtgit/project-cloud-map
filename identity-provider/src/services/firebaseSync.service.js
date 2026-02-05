@@ -1,5 +1,5 @@
 const { db, isConfigured } = require('../config/firebase');
-const pool = require('../config/database');
+const { pool } = require('../config/database');
 
 class FirebaseSyncService {
   // Envoyer les signalements PostgreSQL vers Firebase
@@ -57,17 +57,23 @@ class FirebaseSyncService {
         
         // Préparer les données pour Firebase (sérialisation JSON)
         const firebaseData = {
-          ...signalement,
+          id: signalement.id,
+          titre: signalement.titre,
+          description: signalement.description,
           latitude: parseFloat(signalement.latitude),
           longitude: parseFloat(signalement.longitude),
+          statut: signalement.statut,
+          avancement: parseInt(signalement.avancement) || 0,
           surface_m2: signalement.surface_m2 ? parseFloat(signalement.surface_m2) : null,
           budget: signalement.budget ? parseFloat(signalement.budget) : null,
-          avancement: parseInt(signalement.avancement),
-          date_creation: signalement.date_creation?.toISOString(),
-          date_mise_a_jour: signalement.date_mise_a_jour?.toISOString(),
-          date_nouveau: signalement.date_nouveau?.toISOString(),
-          date_en_cours: signalement.date_en_cours?.toISOString(),
-          date_termine: signalement.date_termine?.toISOString(),
+          entreprise: signalement.entreprise,
+          user_id: signalement.user_id,
+          // Seulement inclure les dates qui existent
+          ...(signalement.date_creation && { date_creation: signalement.date_creation.toISOString() }),
+          ...(signalement.date_mise_a_jour && { date_mise_a_jour: signalement.date_mise_a_jour.toISOString() }),
+          ...(signalement.date_nouveau && { date_nouveau: signalement.date_nouveau.toISOString() }),
+          ...(signalement.date_en_cours && { date_en_cours: signalement.date_en_cours.toISOString() }),
+          ...(signalement.date_termine && { date_termine: signalement.date_termine.toISOString() }),
           sync_timestamp: new Date().toISOString(),
           photos: signalement.photos || []
         };

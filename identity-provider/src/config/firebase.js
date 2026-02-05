@@ -1,39 +1,46 @@
 const admin = require('firebase-admin');
+const path = require('path');
+const fs = require('fs');
 
-// Configuration Firebase (utiliser les variables d'environnement en production)
-const serviceAccount = {
-  "type": "service_account",
-  "project_id": process.env.FIREBASE_PROJECT_ID || "signalement-routier-demo",
-  "private_key_id": process.env.FIREBASE_PRIVATE_KEY_ID,
-  "private_key": process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-  "client_email": process.env.FIREBASE_CLIENT_EMAIL,
-  "client_id": process.env.FIREBASE_CLIENT_ID,
-  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-  "token_uri": "https://oauth2.googleapis.com/token",
-  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs"
-};
-
-// Initialiser Firebase Admin uniquement si les credentials sont disponibles
 let db = null;
+let firebaseInitialized = false;
 
 try {
-  if (process.env.FIREBASE_PROJECT_ID && !admin.apps.length) {
-    admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount),
-      databaseURL: `https://${process.env.FIREBASE_PROJECT_ID}-default-rtdb.firebaseio.com`
-    });
+  // Vérifier si le fichier JSON existe
+  const serviceAccountPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH 
+    ? path.resolve(__dirname, '../../', process.env.FIREBASE_SERVICE_ACCOUNT_PATH)
+    : null;
+
+  if (serviceAccountPath && fs.existsSync(serviceAccountPath)) {
+    // Charger depuis le fichier JSON
+    const serviceAccount = require(serviceAccountPath);
     
-    db = admin.firestore();
-    console.log('🔥 Firebase connecté avec succès');
+    if (!admin.apps.length) {
+      admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount),
+        projectId: serviceAccount.project_id
+      });
+      
+      db = admin.firestore();
+      firebaseInitialized = true;
+      console.log('✅ Firebase connecté avec succès (fichier JSON)');
+      console.log(`   Projet: ${serviceAccount.project_id}`);
+      console.log(`   Collection: ${process.env.FIREBASE_SIGNALEMENTS_COLLECTION || 'signalements'}`);
+    }
   } else {
-    console.log('⚠️  Firebase non configuré - variables d\'environnement manquantes');
+    console.warn('⚠️  Fichier service account non trouvé à:', serviceAccountPath);
+    console.warn('    Vérifiez FIREBASE_SERVICE_ACCOUNT_PATH dans .env');
   }
 } catch (error) {
-  console.error('❌ Erreur configuration Firebase:', error.message);
+  console.error('❌ Erreur initialisation Firebase:', error.message);
+  if (error.code === 'MODULE_NOT_FOUND') {
+    console.error('   Le fichier firebase-service-account.json n\'existe pas');
+    console.error('   Téléchargez-le depuis Firebase Console > Project Settings > Service Accounts');
+  }
 }
 
 module.exports = {
   db,
   admin,
-  isConfigured: () => db !== null
+  isConfigured: () => firebaseInitialized && db !== null
 };
