@@ -3,6 +3,7 @@ const router = express.Router();
 const multer = require('multer');
 const path = require('path');
 const signalementController = require('../controllers/signalement.controller');
+const firebaseSyncController = require('../controllers/firebaseSync.controller');
 
 // Configuration Multer pour upload de photos
 const storage = multer.diskStorage({
@@ -50,5 +51,11 @@ router.delete('/photos/:photoId', signalementController.deletePhoto);
 router.get('/notifications/:userId', signalementController.getNotifications);
 router.put('/notifications/:notifId/read', signalementController.markNotificationRead);
 router.put('/notifications/:userId/read-all', signalementController.markAllNotificationsRead);
+
+// Routes Firebase Sync
+router.post('/sync/push', firebaseSyncController.pushToFirebase);
+router.post('/sync/pull', firebaseSyncController.pullFromFirebase);
+router.post('/sync/bidirectional', firebaseSyncController.syncBidirectional);
+router.get('/sync/status', firebaseSyncController.getSyncStatus);
 
 module.exports = router;

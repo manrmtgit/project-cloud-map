@@ -104,6 +104,31 @@ export const signalementService = {
   markAllNotificationsRead: async (userId) => {
     const response = await api.put(`/api/signalements/notifications/${userId}/read-all`)
     return response.data
+  },
+
+  // === FIREBASE SYNC ===
+  // Envoyer les données vers Firebase
+  pushToFirebase: async () => {
+    const response = await api.post('/api/signalements/sync/push')
+    return response.data
+  },
+
+  // Récupérer les données depuis Firebase
+  pullFromFirebase: async () => {
+    const response = await api.post('/api/signalements/sync/pull')
+    return response.data
+  },
+
+  // Synchronisation bidirectionnelle
+  syncBidirectional: async () => {
+    const response = await api.post('/api/signalements/sync/bidirectional')
+    return response.data
+  },
+
+  // Obtenir le statut de synchronisation
+  getSyncStatus: async () => {
+    const response = await api.get('/api/signalements/sync/status')
+    return response.data
   }
 }
 

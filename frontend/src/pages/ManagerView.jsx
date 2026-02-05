@@ -23,6 +23,15 @@ const ManagerView = () => {
   const [showPhotoModal, setShowPhotoModal] = useState(false);
   const fileInputRef = useRef(null);
   
+  // État pour Firebase sync
+  const [firebaseSync, setFirebaseSync] = useState({
+    pushing: false,
+    pulling: false,
+    bidirectional: false,
+    lastSync: null,
+    stats: null
+  });
+  
   // État pour les statistiques détaillées
   const [detailedStats, setDetailedStats] = useState(null);
   const [showStatsPanel, setShowStatsPanel] = useState(false);
@@ -52,6 +61,7 @@ const ManagerView = () => {
   useEffect(() => {
     loadSignalements();
     loadDetailedStats();
+    loadFirebaseSyncStats();
     if (user?.id) {
       loadNotifications();
     }
@@ -105,11 +115,69 @@ const ManagerView = () => {
       await loadSignalements();
       await loadDetailedStats();
       if (user?.id) await loadNotifications();
-      alert('Synchronisation réussie !');
+      alert('Synchronisation locale réussie !');
     } catch (error) {
-      alert('Erreur lors de la synchronisation');
+      alert('Erreur lors de la synchronisation locale');
     } finally {
       setSyncing(false);
+    }
+  };
+
+  // === FIREBASE SYNC FUNCTIONS ===
+  const handleFirebasePush = async () => {
+    setFirebaseSync(prev => ({ ...prev, pushing: true }));
+    try {
+      const result = await signalementService.pushToFirebase();
+      alert(`✅ Envoi Firebase réussi !\n${result.message}`);
+      await loadFirebaseSyncStats();
+    } catch (error) {
+      console.error('Erreur push Firebase:', error);
+      alert('❌ Erreur lors de l\'envoi vers Firebase');
+    } finally {
+      setFirebaseSync(prev => ({ ...prev, pushing: false }));
+    }
+  };
+
+  const handleFirebasePull = async () => {
+    setFirebaseSync(prev => ({ ...prev, pulling: true }));
+    try {
+      const result = await signalementService.pullFromFirebase();
+      alert(`✅ Récupération Firebase réussie !\n${result.message}`);
+      await loadSignalements();
+      await loadFirebaseSyncStats();
+    } catch (error) {
+      console.error('Erreur pull Firebase:', error);
+      alert('❌ Erreur lors de la récupération depuis Firebase');
+    } finally {
+      setFirebaseSync(prev => ({ ...prev, pulling: false }));
+    }
+  };
+
+  const handleFirebaseBidirectional = async () => {
+    setFirebaseSync(prev => ({ ...prev, bidirectional: true }));
+    try {
+      const result = await signalementService.syncBidirectional();
+      alert(`✅ Synchronisation bidirectionnelle réussie !`);
+      await loadSignalements();
+      await loadFirebaseSyncStats();
+    } catch (error) {
+      console.error('Erreur sync bidirectionnelle:', error);
+      alert('❌ Erreur lors de la synchronisation bidirectionnelle');
+    } finally {
+      setFirebaseSync(prev => ({ ...prev, bidirectional: false }));
+    }
+  };
+
+  const loadFirebaseSyncStats = async () => {
+    try {
+      const result = await signalementService.getSyncStatus();
+      setFirebaseSync(prev => ({ 
+        ...prev, 
+        stats: result.stats,
+        lastSync: new Date().toLocaleString()
+      }));
+    } catch (error) {
+      console.error('Erreur stats Firebase:', error);
     }
   };
 
@@ -341,6 +409,35 @@ const ManagerView = () => {
           >
             🔔 {unreadCount > 0 && <span className="notif-badge">{unreadCount}</span>}
           </button>
+          
+          {/* Boutons Firebase Sync */}
+          <div className="firebase-sync-controls">
+            <button 
+              className={`btn-firebase-push ${firebaseSync.pushing ? 'syncing' : ''}`}
+              onClick={handleFirebasePush}
+              disabled={firebaseSync.pushing}
+              title="Envoyer les données vers Firebase"
+            >
+              {firebaseSync.pushing ? '📤 Envoi...' : '📤 → Firebase'}
+            </button>
+            <button 
+              className={`btn-firebase-pull ${firebaseSync.pulling ? 'syncing' : ''}`}
+              onClick={handleFirebasePull}
+              disabled={firebaseSync.pulling}
+              title="Récupérer les données depuis Firebase"
+            >
+              {firebaseSync.pulling ? '📥 Récupération...' : '📥 ← Firebase'}
+            </button>
+            <button 
+              className={`btn-firebase-bidirectional ${firebaseSync.bidirectional ? 'syncing' : ''}`}
+              onClick={handleFirebaseBidirectional}
+              disabled={firebaseSync.bidirectional}
+              title="Synchronisation bidirectionnelle"
+            >
+              {firebaseSync.bidirectional ? '🔄 Sync...' : '🔄 Firebase'}
+            </button>
+          </div>
+          
           <Link to="/" className="btn-back">
             ← Retour à la carte
           </Link>

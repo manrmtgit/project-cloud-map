@@ -90,6 +90,64 @@
   background: rgba(255, 255, 255, 0.3);
 }
 
+/* Firebase Sync Controls */
+.firebase-sync-controls {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-firebase-push,
+.btn-firebase-pull, 
+.btn-firebase-bidirectional {
+  padding: 8px 16px;
+  background: rgba(52, 152, 219, 0.8);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-weight: 500;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.3s;
+  white-space: nowrap;
+}
+
+.btn-firebase-push:hover,
+.btn-firebase-pull:hover,
+.btn-firebase-bidirectional:hover {
+  background: rgba(52, 152, 219, 1);
+  transform: translateY(-2px);
+}
+
+.btn-firebase-push.syncing,
+.btn-firebase-pull.syncing,
+.btn-firebase-bidirectional.syncing {
+  opacity: 0.7;
+  cursor: not-allowed;
+  animation: pulse 1.5s infinite;
+}
+
+.btn-firebase-push {
+  background: rgba(46, 204, 113, 0.8);
+}
+
+.btn-firebase-push:hover {
+  background: rgba(46, 204, 113, 1);
+}
+
+.btn-firebase-pull {
+  background: rgba(155, 89, 182, 0.8);
+}
+
+.btn-firebase-pull:hover {
+  background: rgba(155, 89, 182, 1);
+}
+
+@keyframes pulse {
+  0% { opacity: 0.7; }
+  50% { opacity: 1; }
+  100% { opacity: 0.7; }
+}
+
 /* Content */
 .manager-content {
   flex: 1;
