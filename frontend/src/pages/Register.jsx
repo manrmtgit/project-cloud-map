@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { MapIcon, UserIcon, EmailIcon, LockIcon } from '../components/Icons'
 import './Auth.css'
 
 const Register = () => {
@@ -63,7 +64,10 @@ const Register = () => {
     <div className="auth-container">
       <div className="auth-card">
         <div className="auth-header">
-          <h1>🗺️ Cloud Map</h1>
+          <div className="auth-logo">
+            <MapIcon size={32} />
+          </div>
+          <h1>Cloud Map</h1>
           <p>Créez votre compte</p>
         </div>
 
@@ -72,7 +76,10 @@ const Register = () => {
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label htmlFor="username">Nom d'utilisateur</label>
+            <label htmlFor="username">
+              <UserIcon size={16} />
+              Nom d'utilisateur
+            </label>
             <input
               type="text"
               id="username"
@@ -85,7 +92,10 @@ const Register = () => {
           </div>
 
           <div className="form-group">
-            <label htmlFor="email">Email</label>
+            <label htmlFor="email">
+              <EmailIcon size={16} />
+              Email
+            </label>
             <input
               type="email"
               id="email"
@@ -98,7 +108,10 @@ const Register = () => {
           </div>
 
           <div className="form-group">
-            <label htmlFor="password">Mot de passe</label>
+            <label htmlFor="password">
+              <LockIcon size={16} />
+              Mot de passe
+            </label>
             <input
               type="password"
               id="password"
@@ -111,7 +124,10 @@ const Register = () => {
           </div>
 
           <div className="form-group">
-            <label htmlFor="confirmPassword">Confirmer le mot de passe</label>
+            <label htmlFor="confirmPassword">
+              <LockIcon size={16} />
+              Confirmer le mot de passe
+            </label>
             <input
               type="password"
               id="confirmPassword"

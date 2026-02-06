@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { userService } from '../services/api'
+import Icons from '../components/Icons'
 import './Dashboard.css'
 
 const Dashboard = () => {
@@ -33,21 +34,27 @@ const Dashboard = () => {
 
       <div className="dashboard-stats">
         <div className="stat-card">
-          <div className="stat-icon">👥</div>
+          <div className="stat-icon users">
+            <Icons.Users size={24} />
+          </div>
           <div className="stat-info">
             <h3>{users.length}</h3>
             <p>Utilisateurs</p>
           </div>
         </div>
         <div className="stat-card">
-          <div className="stat-icon">🗺️</div>
+          <div className="stat-icon map">
+            <Icons.Map size={24} />
+          </div>
           <div className="stat-info">
             <h3>1</h3>
             <p>Carte</p>
           </div>
         </div>
         <div className="stat-card">
-          <div className="stat-icon">✅</div>
+          <div className="stat-icon active">
+            <Icons.CheckCircle size={24} />
+          </div>
           <div className="stat-info">
             <h3>Actif</h3>
             <p>Statut</p>

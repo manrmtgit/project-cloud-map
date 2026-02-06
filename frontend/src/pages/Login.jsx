@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { MapIcon, EmailIcon, LockIcon } from '../components/Icons'
 import './Auth.css'
 
 const Login = () => {
@@ -40,7 +41,10 @@ const Login = () => {
     <div className="auth-container">
       <div className="auth-card">
         <div className="auth-header">
-          <h1>🗺️ Cloud Map</h1>
+          <div className="auth-logo">
+            <MapIcon size={32} />
+          </div>
+          <h1>Cloud Map</h1>
           <p>Connectez-vous à votre compte</p>
         </div>
 
@@ -48,7 +52,10 @@ const Login = () => {
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label htmlFor="email">Email</label>
+            <label htmlFor="email">
+              <EmailIcon size={16} />
+              Email
+            </label>
             <input
               type="email"
               id="email"
@@ -61,7 +68,10 @@ const Login = () => {
           </div>
 
           <div className="form-group">
-            <label htmlFor="password">Mot de passe</label>
+            <label htmlFor="password">
+              <LockIcon size={16} />
+              Mot de passe
+            </label>
             <input
               type="password"
               id="password"

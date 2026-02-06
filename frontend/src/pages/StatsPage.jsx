@@ -1,267 +1,325 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { signalementService } from '../services/signalement.api';
 import { useAuth } from '../context/AuthContext';
+import { BarChartIcon, PieChartIcon, TrendingUpIcon, CalendarIcon, 
+         ClockIcon, CheckCircleIcon, AlertCircleIcon, XCircleIcon } from '../components/Icons';
 import './StatsPage.css';
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+
 const StatsPage = () => {
-  const { user, logout } = useAuth();
-  const [stats, setStats] = useState(null);
-  const [detailedStats, setDetailedStats] = useState(null);
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({
+    overview: {
+      total: 0,
+      nouveau: 0,
+      en_cours: 0,
+      termine: 0
+    },
+    monthly: [],
+    delays: {
+      average: 0,
+      delayed: 0,
+      onTime: 0
+    },
+    enterprises: [],
+    kpis: {
+      completion_rate: 0,
+      average_resolution_time: 0,
+      monthly_growth: 0,
+      budget_efficiency: 0
+    }
+  });
 
   useEffect(() => {
-    const loadStats = async () => {
-      try {
-        const [basicStats, detailed] = await Promise.all([
-          signalementService.getStats(),
-          signalementService.getDetailedStats()
-        ]);
-        setStats(basicStats);
-        setDetailedStats(detailed);
-      } catch (error) {
-        console.error('Erreur chargement stats:', error);
-      } finally {
-        setLoading(false);
+    if (user) {
+      loadStats();
+    }
+  }, [user]);
+
+  const loadStats = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_URL}/api/signalements/stats`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setStats(data);
       }
-    };
-    loadStats();
-  }, []);
+    } catch (error) {
+      console.error('Erreur lors du chargement des statistiques:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   if (loading) {
     return (
-      <div className="stats-page">
-        <div className="loading-container">
-          <div className="spinner"></div>
-          <p>Chargement des statistiques...</p>
-        </div>
+      <div className="loading-container">
+        <div className="spinner"></div>
+        <p>Chargement des statistiques...</p>
       </div>
     );
   }
 
-  const calculatePercentage = (value, total) => {
-    if (!total) return 0;
-    return ((value / total) * 100).toFixed(1);
-  };
-
   return (
     <div className="stats-page">
-      {/* Header */}
-      <header className="stats-header">
-        <div className="header-left">
-          <h1>📊 Tableau de Bord - Statistiques</h1>
-          <span className="badge">Manager</span>
+      {/* Vue d'ensemble */}
+      <div className="stats-section">
+        <div className="section-title">
+          <BarChartIcon size={20} />
+          Vue d'ensemble
         </div>
-        <div className="header-right">
-          <Link to="/manager" className="btn-nav">
-            🛠️ Gestion
-          </Link>
-          <Link to="/" className="btn-nav">
-            🗺️ Carte
-          </Link>
-          <button className="btn-logout" onClick={logout}>
-            🚪 Déconnexion
-          </button>
+        
+        <div className="overview-cards">
+          <div className="overview-card total">
+            <div className="card-icon">
+              <CheckCircleIcon size={28} />
+            </div>
+            <div className="card-content">
+              <div className="card-value">{stats.overview.total}</div>
+              <div className="card-label">Total signalements</div>
+            </div>
+          </div>
+          
+          <div className="overview-card nouveau">
+            <div className="card-icon">
+              <AlertCircleIcon size={28} />
+            </div>
+            <div className="card-content">
+              <div className="card-value">{stats.overview.nouveau}</div>
+              <div className="card-label">Nouveaux</div>
+              <div className="card-percent">
+                {((stats.overview.nouveau / stats.overview.total) * 100).toFixed(1)}%
+              </div>
+            </div>
+          </div>
+          
+          <div className="overview-card en-cours">
+            <div className="card-icon">
+              <ClockIcon size={28} />
+            </div>
+            <div className="card-content">
+              <div className="card-value">{stats.overview.en_cours}</div>
+              <div className="card-label">En cours</div>
+              <div className="card-percent">
+                {((stats.overview.en_cours / stats.overview.total) * 100).toFixed(1)}%
+              </div>
+            </div>
+          </div>
+          
+          <div className="overview-card termine">
+            <div className="card-icon">
+              <CheckCircleIcon size={28} />
+            </div>
+            <div className="card-content">
+              <div className="card-value">{stats.overview.termine}</div>
+              <div className="card-label">Terminés</div>
+              <div className="card-percent">
+                {((stats.overview.termine / stats.overview.total) * 100).toFixed(1)}%
+              </div>
+            </div>
+          </div>
         </div>
-      </header>
+      </div>
 
-      <div className="stats-content">
-        {/* Section Résumé */}
-        <section className="stats-section">
-          <h2 className="section-title">📈 Vue d'ensemble</h2>
-          <div className="overview-cards">
-            <div className="overview-card total">
-              <div className="card-icon">📋</div>
-              <div className="card-content">
-                <span className="card-value">{stats?.total_signalements || 0}</span>
-                <span className="card-label">Total Signalements</span>
-              </div>
+      {/* Délais */}
+      <div className="stats-section">
+        <div className="section-title">
+          <ClockIcon size={20} />
+          Analyse des délais
+        </div>
+        
+        <div className="delays-grid">
+          <div className="delay-card main">
+            <div className="delay-icon">
+              <TrendingUpIcon size={24} />
             </div>
-            <div className="overview-card nouveau">
-              <div className="card-icon">🔴</div>
-              <div className="card-content">
-                <span className="card-value">{stats?.par_statut?.nouveau || 0}</span>
-                <span className="card-label">Nouveaux</span>
-                <span className="card-percent">{calculatePercentage(stats?.par_statut?.nouveau, stats?.total_signalements)}%</span>
+            <div className="delay-info">
+              <div className="delay-value">
+                {stats.delays.average}
+                <small>jours</small>
               </div>
-            </div>
-            <div className="overview-card en-cours">
-              <div className="card-icon">🟡</div>
-              <div className="card-content">
-                <span className="card-value">{stats?.par_statut?.en_cours || 0}</span>
-                <span className="card-label">En cours</span>
-                <span className="card-percent">{calculatePercentage(stats?.par_statut?.en_cours, stats?.total_signalements)}%</span>
-              </div>
-            </div>
-            <div className="overview-card termine">
-              <div className="card-icon">🟢</div>
-              <div className="card-content">
-                <span className="card-value">{stats?.par_statut?.termine || 0}</span>
-                <span className="card-label">Terminés</span>
-                <span className="card-percent">{calculatePercentage(stats?.par_statut?.termine, stats?.total_signalements)}%</span>
+              <div className="delay-label">Délai moyen de résolution</div>
+              <div className="delay-desc">
+                Temps moyen entre création et résolution
               </div>
             </div>
           </div>
-        </section>
-
-        {/* Section Délais de traitement */}
-        <section className="stats-section">
-          <h2 className="section-title">⏱️ Délais de Traitement</h2>
-          <div className="delays-grid">
-            <div className="delay-card main">
-              <div className="delay-icon">📊</div>
-              <div className="delay-info">
-                <span className="delay-value">
-                  {detailedStats?.delais?.moyen_total_jours || 'N/A'}
-                  <small>jours</small>
-                </span>
-                <span className="delay-label">Délai Moyen Total</span>
-                <span className="delay-desc">Du signalement à la fin des travaux</span>
-              </div>
+          
+          <div className="delay-card">
+            <div className="delay-icon">
+              <AlertCircleIcon size={24} />
             </div>
-            <div className="delay-card">
-              <div className="delay-icon">🚀</div>
-              <div className="delay-info">
-                <span className="delay-value">
-                  {detailedStats?.delais?.demarrage_moyen_jours || 'N/A'}
-                  <small>jours</small>
-                </span>
-                <span className="delay-label">Délai Démarrage</span>
-                <span className="delay-desc">Nouveau → En cours</span>
-              </div>
-            </div>
-            <div className="delay-card">
-              <div className="delay-icon">🔧</div>
-              <div className="delay-info">
-                <span className="delay-value">
-                  {detailedStats?.delais?.travaux_moyen_jours || 'N/A'}
-                  <small>jours</small>
-                </span>
-                <span className="delay-label">Délai Travaux</span>
-                <span className="delay-desc">En cours → Terminé</span>
-              </div>
-            </div>
-            <div className="delay-card range">
-              <div className="delay-icon">📏</div>
-              <div className="delay-info">
-                <span className="delay-value">
-                  {detailedStats?.delais?.min_jours || 'N/A'} - {detailedStats?.delais?.max_jours || 'N/A'}
-                  <small>jours</small>
-                </span>
-                <span className="delay-label">Plage (Min - Max)</span>
-                <span className="delay-desc">Écart entre le plus rapide et le plus lent</span>
-              </div>
+            <div className="delay-info">
+              <div className="delay-value">{stats.delays.delayed}</div>
+              <div className="delay-label">En retard</div>
+              <div className="delay-desc">Signalements dépassant le délai</div>
             </div>
           </div>
-        </section>
-
-        {/* Section Performance par Entreprise */}
-        <section className="stats-section">
-          <h2 className="section-title">🏢 Performance par Entreprise</h2>
-          <div className="table-container">
-            <table className="stats-table">
-              <thead>
-                <tr>
-                  <th>Entreprise</th>
-                  <th>Total Projets</th>
-                  <th>Terminés</th>
-                  <th>Taux Réussite</th>
-                  <th>Délai Moyen</th>
-                </tr>
-              </thead>
-              <tbody>
-                {detailedStats?.par_entreprise?.map((entreprise, index) => (
-                  <tr key={index}>
-                    <td className="entreprise-name">
-                      <span className="entreprise-icon">🏗️</span>
-                      {entreprise.entreprise}
-                    </td>
-                    <td>{entreprise.total}</td>
-                    <td>{entreprise.termines}</td>
-                    <td>
-                      <div className="progress-bar">
-                        <div 
-                          className="progress-fill"
-                          style={{ width: `${calculatePercentage(entreprise.termines, entreprise.total)}%` }}
-                        ></div>
-                        <span className="progress-text">
-                          {calculatePercentage(entreprise.termines, entreprise.total)}%
-                        </span>
-                      </div>
-                    </td>
-                    <td className="delay-cell">
-                      {entreprise.delai_moyen 
-                        ? `${parseFloat(entreprise.delai_moyen).toFixed(1)} jours` 
-                        : 'N/A'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          
+          <div className="delay-card">
+            <div className="delay-icon">
+              <CheckCircleIcon size={24} />
+            </div>
+            <div className="delay-info">
+              <div className="delay-value">{stats.delays.onTime}</div>
+              <div className="delay-label">Dans les temps</div>
+              <div className="delay-desc">Respectant les délais prévus</div>
+            </div>
           </div>
-        </section>
+        </div>
+      </div>
 
-        {/* Section Évolution Mensuelle */}
-        <section className="stats-section">
-          <h2 className="section-title">📅 Évolution Mensuelle</h2>
+      {/* Évolution mensuelle */}
+      {stats.monthly && stats.monthly.length > 0 && (
+        <div className="stats-section">
+          <div className="section-title">
+            <CalendarIcon size={20} />
+            Évolution mensuelle
+          </div>
+          
           <div className="monthly-grid">
-            {detailedStats?.par_mois?.slice(0, 6).map((mois, index) => (
+            {stats.monthly.map((month, index) => (
               <div key={index} className="monthly-card">
                 <div className="monthly-header">
-                  <span className="monthly-date">{mois.mois}</span>
-                  <span className="monthly-total">{mois.total} signalements</span>
+                  <span className="monthly-date">{month.month}</span>
+                  <span className="monthly-total">Total: {month.total}</span>
                 </div>
                 <div className="monthly-bars">
                   <div className="bar-item">
-                    <span className="bar-label">Nouveaux</span>
-                    <div className="bar nouveau" style={{ width: `${calculatePercentage(mois.nouveau, mois.total)}%` }}>
-                      {mois.nouveau}
+                    <span className="bar-label">Nouveau</span>
+                    <div 
+                      className="bar nouveau" 
+                      style={{width: `${(month.nouveau / month.total) * 100}%`}}
+                    >
+                      {month.nouveau}
                     </div>
                   </div>
                   <div className="bar-item">
                     <span className="bar-label">En cours</span>
-                    <div className="bar en-cours" style={{ width: `${calculatePercentage(mois.en_cours, mois.total)}%` }}>
-                      {mois.en_cours}
+                    <div 
+                      className="bar en-cours" 
+                      style={{width: `${(month.en_cours / month.total) * 100}%`}}
+                    >
+                      {month.en_cours}
                     </div>
                   </div>
                   <div className="bar-item">
-                    <span className="bar-label">Terminés</span>
-                    <div className="bar termine" style={{ width: `${calculatePercentage(mois.termine, mois.total)}%` }}>
-                      {mois.termine}
+                    <span className="bar-label">Terminé</span>
+                    <div 
+                      className="bar termine" 
+                      style={{width: `${(month.termine / month.total) * 100}%`}}
+                    >
+                      {month.termine}
                     </div>
                   </div>
                 </div>
               </div>
             ))}
           </div>
-        </section>
+        </div>
+      )}
 
-        {/* Indicateurs clés */}
-        <section className="stats-section">
-          <h2 className="section-title">🎯 Indicateurs Clés de Performance</h2>
-          <div className="kpi-grid">
-            <div className="kpi-card">
-              <div className="kpi-icon success">✅</div>
-              <div className="kpi-value">{calculatePercentage(stats?.par_statut?.termine, stats?.total_signalements)}%</div>
-              <div className="kpi-label">Taux de Résolution</div>
-            </div>
-            <div className="kpi-card">
-              <div className="kpi-icon warning">⏳</div>
-              <div className="kpi-value">{stats?.par_statut?.en_cours || 0}</div>
-              <div className="kpi-label">Travaux en Cours</div>
-            </div>
-            <div className="kpi-card">
-              <div className="kpi-icon danger">🚨</div>
-              <div className="kpi-value">{stats?.par_statut?.nouveau || 0}</div>
-              <div className="kpi-label">En Attente</div>
-            </div>
-            <div className="kpi-card">
-              <div className="kpi-icon info">📊</div>
-              <div className="kpi-value">{stats?.delais?.moyen_total_jours || detailedStats?.delais?.moyen_total_jours || 'N/A'}j</div>
-              <div className="kpi-label">Temps Moyen</div>
-            </div>
+      {/* Entreprises */}
+      {stats.enterprises && stats.enterprises.length > 0 && (
+        <div className="stats-section">
+          <div className="section-title">
+            <PieChartIcon size={20} />
+            Performance par entreprise
           </div>
-        </section>
+          
+          <div className="table-container">
+            <table className="stats-table">
+              <thead>
+                <tr>
+                  <th>Entreprise</th>
+                  <th>Total</th>
+                  <th>Terminés</th>
+                  <th>Progression</th>
+                  <th>Délai moyen</th>
+                </tr>
+              </thead>
+              <tbody>
+                {stats.enterprises.map((enterprise, index) => (
+                  <tr key={index}>
+                    <td>
+                      <div className="entreprise-name">
+                        <span className="entreprise-icon">🏢</span>
+                        {enterprise.name}
+                      </div>
+                    </td>
+                    <td>{enterprise.total}</td>
+                    <td>{enterprise.completed}</td>
+                    <td>
+                      <div className="progress-bar">
+                        <div 
+                          className="progress-fill"
+                          style={{width: `${(enterprise.completed / enterprise.total) * 100}%`}}
+                        ></div>
+                        <span className="progress-text">
+                          {((enterprise.completed / enterprise.total) * 100).toFixed(1)}%
+                        </span>
+                      </div>
+                    </td>
+                    <td className={enterprise.averageDelay > 30 ? 'delay-cell' : ''}>
+                      {enterprise.averageDelay} jours
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* KPIs */}
+      <div className="stats-section">
+        <div className="section-title">
+          <TrendingUpIcon size={20} />
+          Indicateurs clés
+        </div>
+        
+        <div className="kpi-grid">
+          <div className="kpi-card">
+            <div className="kpi-icon success">
+              <CheckCircleIcon size={28} />
+            </div>
+            <span className="kpi-value">{stats.kpis.completion_rate.toFixed(1)}%</span>
+            <span className="kpi-label">Taux de complétion</span>
+          </div>
+          
+          <div className="kpi-card">
+            <div className="kpi-icon warning">
+              <ClockIcon size={28} />
+            </div>
+            <span className="kpi-value">{stats.kpis.average_resolution_time}</span>
+            <span className="kpi-label">Délai moyen (jours)</span>
+          </div>
+          
+          <div className="kpi-card">
+            <div className="kpi-icon info">
+              <TrendingUpIcon size={28} />
+            </div>
+            <span className="kpi-value">
+              {stats.kpis.monthly_growth > 0 ? '+' : ''}{stats.kpis.monthly_growth.toFixed(1)}%
+            </span>
+            <span className="kpi-label">Croissance mensuelle</span>
+          </div>
+          
+          <div className="kpi-card">
+            <div className="kpi-icon danger">
+              <PieChartIcon size={28} />
+            </div>
+            <span className="kpi-value">{stats.kpis.budget_efficiency.toFixed(1)}%</span>
+            <span className="kpi-label">Efficacité budget</span>
+          </div>
+        </div>
       </div>
     </div>
   );

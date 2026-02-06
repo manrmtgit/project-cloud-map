@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { signalementService } from '../services/signalement.api';
 import { useAuth } from '../context/AuthContext';
+import Layout from '../components/Layout';
+import { Icons } from '../components/Icons';
 import './ManagerView.css';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
@@ -377,14 +379,17 @@ const ManagerView = () => {
 
   if (loading) {
     return (
-      <div className="loading-screen">
-        <div className="spinner"></div>
-        <p>Chargement des données...</p>
-      </div>
+      <Layout user={user} onLogout={logout} title="Interface Manager">
+        <div className="loading-screen">
+          <div className="spinner"></div>
+          <p>Chargement des données...</p>
+        </div>
+      </Layout>
     );
   }
 
   return (
+    <Layout user={user} onLogout={logout} title="Interface Manager" showHeader={false}>
     <div className="manager-view">
       {/* Header */}
       <header className="manager-header">
@@ -410,44 +415,9 @@ const ManagerView = () => {
             🔔 {unreadCount > 0 && <span className="notif-badge">{unreadCount}</span>}
           </button>
           
-          {/* Boutons Firebase Sync */}
-          <div className="firebase-sync-controls">
-            <button 
-              className={`btn-firebase-push ${firebaseSync.pushing ? 'syncing' : ''}`}
-              onClick={handleFirebasePush}
-              disabled={firebaseSync.pushing}
-              title="Envoyer les données vers Firebase"
-            >
-              {firebaseSync.pushing ? '📤 Envoi...' : '📤 → Firebase'}
-            </button>
-            <button 
-              className={`btn-firebase-pull ${firebaseSync.pulling ? 'syncing' : ''}`}
-              onClick={handleFirebasePull}
-              disabled={firebaseSync.pulling}
-              title="Récupérer les données depuis Firebase"
-            >
-              {firebaseSync.pulling ? '📥 Récupération...' : '📥 ← Firebase'}
-            </button>
-            <button 
-              className={`btn-firebase-bidirectional ${firebaseSync.bidirectional ? 'syncing' : ''}`}
-              onClick={handleFirebaseBidirectional}
-              disabled={firebaseSync.bidirectional}
-              title="Synchronisation bidirectionnelle"
-            >
-              {firebaseSync.bidirectional ? '🔄 Sync...' : '🔄 Firebase'}
-            </button>
-          </div>
-          
           <Link to="/" className="btn-back">
             ← Retour à la carte
           </Link>
-          <button 
-            className={`btn-sync ${syncing ? 'syncing' : ''}`} 
-            onClick={handleSync}
-            disabled={syncing}
-          >
-            {syncing ? '🔄 Synchronisation...' : '🔄 Synchroniser'}
-          </button>
           <button className="btn-logout" onClick={logout}>
             🚪 Déconnexion
           </button>
@@ -941,8 +911,135 @@ const ManagerView = () => {
             </div>
           )}
         </div>
+
+        {/* Section Firebase Synchronisation */}
+        <div className="firebase-sync-panel">
+          <div className="sync-header">
+            <div className="sync-title">
+              <span className="sync-icon">🌐</span>
+              <h2>Synchronisation Mobile</h2>
+              <span className="sync-subtitle">Gérer la synchronisation avec Firebase</span>
+            </div>
+          </div>
+
+          <div className="sync-content">
+            {/* Statut actuel */}
+            <div className="sync-status-card">
+              <h3>📊 État Actuel</h3>
+              <div className="status-info">
+                <div className="status-item">
+                  <span className="status-label">Base de Données</span>
+                  <span className="status-value">PostgreSQL</span>
+                  <span className="status-count">{filteredSignalements.length}</span>
+                  <span className="status-sublabel">signalements</span>
+                </div>
+                <div className="status-arrow">⟷</div>
+                <div className="status-item">
+                  <span className="status-label">Mobile (Firebase)</span>
+                  <span className="status-value">Firestore</span>
+                  <span className="status-count">{firebaseSync.stats?.firebase_count || 0}</span>
+                  <span className="status-sublabel">signalements</span>
+                </div>
+              </div>
+              {firebaseSync.lastSync && (
+                <div className="sync-timestamp">
+                  <span className="timestamp-icon">⏱️</span>
+                  <p>Dernière synchro: <strong>{firebaseSync.lastSync}</strong></p>
+                </div>
+              )}
+              <div className="sync-progress">
+                <div className="progress-bar">
+                  <div 
+                    className="progress-fill" 
+                    style={{width: `${firebaseSync.stats?.firebase_count && filteredSignalements.length ? Math.min((firebaseSync.stats.firebase_count / filteredSignalements.length) * 100, 100) : 0}%`}}
+                  ></div>
+                </div>
+                <span className="progress-label">
+                  {firebaseSync.stats?.firebase_count && filteredSignalements.length 
+                    ? `${Math.round((firebaseSync.stats.firebase_count / filteredSignalements.length) * 100)}% synchronisés`
+                    : 'Aucun élément synchronisé'
+                  }
+                </span>
+              </div>
+            </div>
+
+            {/* Boutons de synchronisation */}
+            <div className="sync-actions">
+              <div className="sync-button-group">
+                <button 
+                  className={`sync-btn sync-btn-push ${firebaseSync.pushing ? 'syncing' : ''}`}
+                  onClick={handleFirebasePush}
+                  disabled={firebaseSync.pushing}
+                  title="Envoyer tous les signalements vers Firebase"
+                >
+                  <svg className="sync-btn-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 2.25m0 0l4.5 4.5M12 2.25l-4.5 4.5"/>
+                  </svg>
+                  <span className="sync-btn-text">
+                    <span className="sync-btn-title">Envoyer</span>
+                    <span className="sync-btn-desc">vers Firebase</span>
+                  </span>
+                  {firebaseSync.pushing && <span className="spinner-mini"></span>}
+                </button>
+
+                <button 
+                  className={`sync-btn sync-btn-pull ${firebaseSync.pulling ? 'syncing' : ''}`}
+                  onClick={handleFirebasePull}
+                  disabled={firebaseSync.pulling}
+                  title="Récupérer tous les signalements depuis Firebase"
+                >
+                  <svg className="sync-btn-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M3 7.5V5.25A2.25 2.25 0 0 1 5.25 3h13.5A2.25 2.25 0 0 1 21 5.25v2.25m-13.5 9L12 21.75m0 0l4.5-4.5M12 21.75l-4.5-4.5"/>
+                  </svg>
+                  <span className="sync-btn-text">
+                    <span className="sync-btn-title">Récupérer</span>
+                    <span className="sync-btn-desc">depuis Firebase</span>
+                  </span>
+                  {firebaseSync.pulling && <span className="spinner-mini"></span>}
+                </button>
+
+                <button 
+                  className={`sync-btn sync-btn-sync ${firebaseSync.bidirectional ? 'syncing' : ''}`}
+                  onClick={handleFirebaseBidirectional}
+                  disabled={firebaseSync.bidirectional}
+                  title="Synchronisation bidirectionnelle complète"
+                >
+                  <svg className="sync-btn-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M3 7v6h6M21 17v-6h-6"/>
+                    <path d="M17 3a4 4 0 0 0-4 4v4m4 8a4 4 0 0 1-4-4v-4M7 21a4 4 0 0 1 4-4v-4m-4-8a4 4 0 0 0 4 4v4"/>
+                  </svg>
+                  <span className="sync-btn-text">
+                    <span className="sync-btn-title">Synchroniser</span>
+                    <span className="sync-btn-desc">Bidirectionnelle</span>
+                  </span>
+                  {firebaseSync.bidirectional && <span className="spinner-mini"></span>}
+                </button>
+              </div>
+            </div>
+
+            {/* Info Firebase */}
+            <div className="firebase-info-card">
+              <h3>ℹ️ À Propos de la Synchronisation</h3>
+              <div className="info-grid">
+                <div className="info-box">
+                  <span className="info-icon">✈️</span>
+                  <p><strong>Pour Mobile</strong><br/>Les données sont synchronisées sur Firebase pour que votre app mobile puisse y accéder en temps réel.</p>
+                </div>
+                <div className="info-box">
+                  <span className="info-icon">⚡</span>
+                  <p><strong>Automatique</strong><br/>La synchronisation bidirectionnelle permet à la web et mobile de rester toujours à jour.</p>
+                </div>
+                <div className="info-box">
+                  <span className="info-icon">🔒</span>
+                  <p><strong>Sécurisé</strong><br/>Les données sont cryptées et protégées par les règles de sécurité Firebase.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
+    </Layout>
   );
 };
 
