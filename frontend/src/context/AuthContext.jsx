@@ -46,9 +46,10 @@ export const AuthProvider = ({ children }) => {
       setUser(data.user)
       return data
     } catch (err) {
-      const message = err.response?.data?.message || 'Erreur de connexion'
+      const message = err.response?.data?.error || err.response?.data?.message || 'Erreur de connexion'
       setError(message)
-      throw new Error(message)
+      // Re-throw with original response data for Login component to handle
+      throw err
     }
   }
 

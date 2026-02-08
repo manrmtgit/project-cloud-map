@@ -95,3 +95,78 @@
 .users-table td {
   color: #666;
 }
+
+/* Blocked users section */
+.blocked-section {
+  border-left: 4px solid #e74c3c;
+}
+
+.blocked-row {
+  background-color: #fff5f5 !important;
+}
+
+.blocked-row:hover {
+  background-color: #ffe0e0 !important;
+}
+
+.badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.badge-danger {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.btn-unblock {
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.btn-unblock:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+}
+
+.btn-unblock:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 30px;
+  color: #10b981;
+  font-size: 1.1rem;
+}
+
+.alert {
+  padding: 12px 20px;
+  border-radius: 8px;
+  margin-bottom: 15px;
+  font-weight: 500;
+}
+
+.alert-success {
+  background: #d1fae5;
+  color: #065f46;
+  border: 1px solid #6ee7b7;
+}
+
+.alert-error {
+  background: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fca5a5;
+}
