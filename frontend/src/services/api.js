@@ -94,4 +94,22 @@ export const userService = {
   }
 }
 
+// Services d'administration (gestion des blocages)
+export const adminService = {
+  getBlockedUsers: async () => {
+    const response = await api.get('/api/auth/blocked-users')
+    return response.data
+  },
+
+  unblockUser: async (userId) => {
+    const response = await api.post(`/api/auth/unblock/${userId}`)
+    return response.data
+  },
+
+  getLoginConfig: async () => {
+    const response = await api.get('/api/auth/config')
+    return response.data
+  }
+}
+
 export default api

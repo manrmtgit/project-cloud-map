@@ -63,7 +63,7 @@ CREATE TABLE IF NOT EXISTS utilisateurs (
 );
 
 -- =========================
--- TENTATIVES BLOCAGE
+-- TENTATIVES BLOCAGE (pour table utilisateurs - legacy)
 -- =========================
 CREATE TABLE IF NOT EXISTS tentatives_blocage (
     id SERIAL PRIMARY KEY,
@@ -73,7 +73,7 @@ CREATE TABLE IF NOT EXISTS tentatives_blocage (
 );
 
 -- =========================
--- SESSIONS
+-- SESSIONS (pour table utilisateurs - legacy)
 -- =========================
 CREATE TABLE IF NOT EXISTS sessions (
     id SERIAL PRIMARY KEY,
@@ -82,6 +82,35 @@ CREATE TABLE IF NOT EXISTS sessions (
     date_creation TIMESTAMP NOT NULL DEFAULT NOW(),
     date_expiration TIMESTAMP NOT NULL
 );
+
+-- =========================
+-- LOGIN ATTEMPTS (pour table users UUID - actif)
+-- =========================
+CREATE TABLE IF NOT EXISTS login_attempts (
+    id SERIAL PRIMARY KEY,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    attempts INTEGER NOT NULL DEFAULT 0,
+    is_blocked BOOLEAN NOT NULL DEFAULT FALSE,
+    blocked_at TIMESTAMP NULL,
+    last_attempt_at TIMESTAMP DEFAULT NOW(),
+    UNIQUE(user_id)
+);
+
+-- =========================
+-- USER SESSIONS (pour table users UUID - actif)
+-- =========================
+CREATE TABLE IF NOT EXISTS user_sessions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token TEXT UNIQUE NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    expires_at TIMESTAMP NOT NULL,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_sessions_user_id ON user_sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_sessions_token ON user_sessions(token);
+CREATE INDEX IF NOT EXISTS idx_login_attempts_user_id ON login_attempts(user_id);
 
 -- =========================
 -- SIGNALÉMENTS

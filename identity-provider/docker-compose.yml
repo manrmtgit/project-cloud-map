@@ -32,10 +32,23 @@ services:
       - DB_USER=postgres
       - DB_PASSWORD=postgres123
       - DB_NAME=identity_db
+      - MAX_LOGIN_ATTEMPTS=3
+      - SESSION_DURATION=24h
     volumes:
       - ./src:/app/src
     depends_on:
       - postgres
+    restart: unless-stopped
+
+  # Serveur de carte offline (tileserver-gl)
+  tileserver:
+    image: maptiler/tileserver-gl:latest
+    container_name: tileserver-gl
+    ports:
+      - "8080:8080"
+    volumes:
+      - ../carte:/data
+    command: --verbose --public_url http://localhost:8080
     restart: unless-stopped
 
 volumes:

@@ -1,13 +1,7 @@
+import api from './api'
 import axios from 'axios'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
-
-const api = axios.create({
-  baseURL: API_URL,
-  headers: {
-    'Content-Type': 'application/json'
-  }
-})
 
 // Services pour les signalements
 export const signalementService = {
@@ -73,10 +67,16 @@ export const signalementService = {
   uploadPhotos: async (signalementId, files) => {
     const formData = new FormData()
     files.forEach(file => formData.append('photos', file))
+    const token = localStorage.getItem('token')
     const response = await axios.post(
       `${API_URL}/api/signalements/${signalementId}/photos`,
       formData,
-      { headers: { 'Content-Type': 'multipart/form-data' } }
+      { 
+        headers: { 
+          'Content-Type': 'multipart/form-data',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        } 
+      }
     )
     return response.data
   },

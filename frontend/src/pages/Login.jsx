@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { authService } from '../services/api'
 import './Auth.css'
 
 const Login = () => {
@@ -10,6 +11,8 @@ const Login = () => {
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [blocked, setBlocked] = useState(false)
+  const [remainingAttempts, setRemainingAttempts] = useState(null)
   
   const { login } = useAuth()
   const navigate = useNavigate()
@@ -24,13 +27,25 @@ const Login = () => {
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
+    setBlocked(false)
+    setRemainingAttempts(null)
     setLoading(true)
 
     try {
       await login(formData)
-      navigate('/')  // Rediriger vers la carte après connexion
+      navigate('/')
     } catch (err) {
-      setError(err.message)
+      const errorData = err.response?.data || {}
+      
+      if (errorData.blocked) {
+        setBlocked(true)
+        setError('Votre compte a été bloqué suite à trop de tentatives échouées. Contactez un administrateur.')
+      } else if (errorData.remaining_attempts !== undefined) {
+        setRemainingAttempts(errorData.remaining_attempts)
+        setError(`Email ou mot de passe incorrect. ${errorData.remaining_attempts} tentative(s) restante(s) avant blocage.`)
+      } else {
+        setError(err.response?.data?.error || err.message || 'Erreur de connexion')
+      }
     } finally {
       setLoading(false)
     }
@@ -44,7 +59,18 @@ const Login = () => {
           <p>Connectez-vous à votre compte</p>
         </div>
 
-        {error && <div className="alert alert-error">{error}</div>}
+        {error && (
+          <div className={`alert ${blocked ? 'alert-blocked' : 'alert-error'}`}>
+            {blocked && <span className="blocked-icon">🔒 </span>}
+            {error}
+          </div>
+        )}
+
+        {remainingAttempts !== null && remainingAttempts <= 1 && !blocked && (
+          <div className="alert alert-warning">
+            ⚠️ Attention : dernière tentative avant blocage du compte !
+          </div>
+        )}
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">
@@ -57,6 +83,7 @@ const Login = () => {
               onChange={handleChange}
               placeholder="votre@email.com"
               required
+              disabled={blocked}
             />
           </div>
 
@@ -70,15 +97,16 @@ const Login = () => {
               onChange={handleChange}
               placeholder="••••••••"
               required
+              disabled={blocked}
             />
           </div>
 
           <button 
             type="submit" 
             className="btn btn-primary btn-block"
-            disabled={loading}
+            disabled={loading || blocked}
           >
-            {loading ? 'Connexion...' : 'Se connecter'}
+            {loading ? 'Connexion...' : blocked ? '🔒 Compte bloqué' : 'Se connecter'}
           </button>
         </form>
 
