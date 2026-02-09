@@ -180,6 +180,7 @@ export const firebaseAuthService = {
       // Stocker dans localStorage
       localStorage.setItem(SESSION_CONFIG.TOKEN_KEY, token);
       localStorage.setItem(SESSION_CONFIG.USER_KEY, JSON.stringify(user));
+      localStorage.setItem(SESSION_CONFIG.SESSION_START_KEY, Date.now().toString());
 
       return {
         message: 'Connexion réussie',
@@ -226,11 +227,22 @@ export const firebaseAuthService = {
     } finally {
       localStorage.removeItem(SESSION_CONFIG.TOKEN_KEY);
       localStorage.removeItem(SESSION_CONFIG.USER_KEY);
+      localStorage.removeItem(SESSION_CONFIG.SESSION_START_KEY);
     }
   },
 
   // Vérifier la session
   async checkSession(): Promise<{ valid: boolean; user?: User }> {
+    // Vérifier la durée de session
+    const sessionStart = localStorage.getItem(SESSION_CONFIG.SESSION_START_KEY);
+    if (sessionStart) {
+      const elapsed = Date.now() - parseInt(sessionStart, 10);
+      if (elapsed > SESSION_CONFIG.SESSION_DURATION_MS) {
+        await this.logout();
+        return { valid: false };
+      }
+    }
+
     return new Promise((resolve) => {
       const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
         unsubscribe();

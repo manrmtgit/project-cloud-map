@@ -1,13 +1,13 @@
 <template>
   <div class="signalement-card" @click="$emit('click', signalement)">
     <div class="card-status" :style="{ backgroundColor: statusColor }">
-      <span>{{ statusIcon }}</span>
+      <ion-icon :icon="statusIcon" style="color: white; font-size: 20px;"></ion-icon>
     </div>
     <div class="card-content">
       <h3 class="card-title">{{ signalement.titre }}</h3>
       <p class="card-description">{{ truncatedDescription }}</p>
       <div class="card-meta">
-        <span class="card-type">{{ typeIcon }} {{ typeLabel }}</span>
+        <span class="card-type"><ion-icon :icon="typeIcon" style="vertical-align: middle; margin-right: 4px;"></ion-icon>{{ typeLabel }}</span>
         <span class="card-date">{{ formattedDate }}</span>
       </div>
     </div>
@@ -18,10 +18,10 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { IonIcon } from '@ionic/vue';
-import { chevronForwardOutline } from 'ionicons/icons';
 import type { Signalement } from '@/models';
 import { getStatusColor, getStatusIcon, getTypeLabel, SIGNALEMENT_TYPES } from '@/models';
 import { formatRelativeDate, truncateText } from '@/utils/formatters';
+import { chevronForwardOutline, helpCircleOutline } from 'ionicons/icons';
 
 interface Props {
   signalement: Signalement;
@@ -36,7 +36,7 @@ const statusIcon = computed(() => getStatusIcon(props.signalement.statut));
 const typeLabel = computed(() => getTypeLabel(props.signalement.type));
 const typeIcon = computed(() => {
   const type = SIGNALEMENT_TYPES.find(t => t.value === props.signalement.type);
-  return type?.icon || '❓';
+  return type?.icon || helpCircleOutline;
 });
 
 const truncatedDescription = computed(() =>
@@ -52,24 +52,25 @@ const formattedDate = computed(() =>
 .signalement-card {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
   background: white;
   border-radius: 16px;
   padding: 16px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
   cursor: pointer;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
+  border: 1px solid rgba(0, 0, 0, 0.04);
 }
 
 .signalement-card:active {
-  transform: scale(0.98);
+  transform: scale(0.97);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
 }
 
 .card-status {
   width: 48px;
   height: 48px;
-  border-radius: 12px;
+  border-radius: 14px;
   display: flex;
   align-items: center;
   justify-content: center;

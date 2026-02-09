@@ -13,7 +13,7 @@
 
       <!-- Statistiques -->
       <div class="stats-section">
-        <h2 class="section-title">📊 Statistiques</h2>
+        <h2 class="section-title"><ion-icon :icon="statsChartOutline" style="vertical-align: middle; margin-right: 6px;"></ion-icon>Statistiques</h2>
 
         <div class="stats-grid">
           <StatsCard
@@ -55,7 +55,7 @@
 
       <!-- Graphique par statut -->
       <div class="chart-section">
-        <h2 class="section-title">📈 Répartition par statut</h2>
+        <h2 class="section-title"><ion-icon :icon="pieChartOutline" style="vertical-align: middle; margin-right: 6px;"></ion-icon>Répartition par statut</h2>
         <div class="chart-container">
           <Doughnut :data="chartData" :options="chartOptions" />
         </div>
@@ -82,14 +82,14 @@
 
       <!-- Liste des signalements récents -->
       <div class="list-section">
-        <h2 class="section-title">📋 Signalements récents</h2>
+        <h2 class="section-title"><ion-icon :icon="listOutline" style="vertical-align: middle; margin-right: 6px;"></ion-icon>Signalements récents</h2>
 
         <div v-if="loading" class="loading-container">
           <ion-spinner name="crescent"></ion-spinner>
         </div>
 
         <div v-else-if="filteredSignalements.length === 0" class="empty-state">
-          <ion-icon :icon="documentTextOutline"></ion-icon>
+          <ion-icon :icon="documentTextOutline" style="font-size: 48px; color: #9CA3AF; margin-bottom: 12px;"></ion-icon>
           <p>Aucun signalement</p>
         </div>
 
@@ -123,19 +123,22 @@ import {
   IonSpinner,
   IonIcon
 } from '@ionic/vue';
-import {
-  alertCircleOutline,
-  checkmarkCircleOutline,
-  resizeOutline,
-  walletOutline,
-  documentTextOutline
-} from 'ionicons/icons';
 import { Doughnut } from 'vue-chartjs';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
 import { useSignalementsStore } from '@/stores';
 import type { Signalement } from '@/models';
 import StatsCard from '@/components/StatsCard.vue';
 import SignalementCard from '@/components/SignalementCard.vue';
+import {
+  alertCircleOutline,
+  checkmarkCircleOutline,
+  resizeOutline,
+  walletOutline,
+  statsChartOutline,
+  pieChartOutline,
+  listOutline,
+  documentTextOutline
+} from 'ionicons/icons';
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 

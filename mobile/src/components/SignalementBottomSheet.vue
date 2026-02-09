@@ -13,11 +13,11 @@
       <!-- Header -->
       <div class="bottom-sheet__header">
         <div class="status-badge" :style="{ backgroundColor: statusColor }">
-          <span class="status-icon">{{ statusIcon }}</span>
+          <ion-icon :icon="statusIcon" class="status-icon"></ion-icon>
           <span class="status-label">{{ statusLabel }}</span>
         </div>
         <ion-button fill="clear" size="small" @click="handleDismiss">
-          <ion-icon :icon="closeOutline"></ion-icon>
+          <ion-icon :icon="closeOutline" style="font-size: 20px; color: #6B7280;"></ion-icon>
         </ion-button>
       </div>
 
@@ -43,34 +43,58 @@
         <!-- Détails -->
         <div class="signalement-details">
           <div class="detail-item">
-            <ion-icon :icon="calendarOutline"></ion-icon>
-            <span class="detail-text">{{ formatDate(signalement.date_creation) }}</span>
+            <ion-icon :icon="calendarOutline" class="detail-icon"></ion-icon>
+            <div class="detail-content">
+              <span class="detail-label">Date de création</span>
+              <span class="detail-text">{{ formatDate(signalement.date_creation) }}</span>
+            </div>
           </div>
 
           <div class="detail-item">
-            <ion-icon :icon="locationOutline"></ion-icon>
-            <span class="detail-text">{{ typeLabel }}</span>
+            <ion-icon :icon="carOutline" class="detail-icon"></ion-icon>
+            <div class="detail-content">
+              <span class="detail-label">Type</span>
+              <span class="detail-text">{{ typeLabel }}</span>
+            </div>
           </div>
 
           <div v-if="signalement.surface_m2" class="detail-item">
-            <ion-icon :icon="resizeOutline"></ion-icon>
-            <span class="detail-text">{{ formatSurface(signalement.surface_m2) }}</span>
+            <ion-icon :icon="resizeOutline" class="detail-icon"></ion-icon>
+            <div class="detail-content">
+              <span class="detail-label">Surface</span>
+              <span class="detail-text">{{ formatSurface(signalement.surface_m2) }}</span>
+            </div>
           </div>
 
           <div v-if="signalement.budget" class="detail-item">
-            <ion-icon :icon="walletOutline"></ion-icon>
-            <span class="detail-text">{{ formatCurrency(signalement.budget) }}</span>
+            <ion-icon :icon="walletOutline" class="detail-icon"></ion-icon>
+            <div class="detail-content">
+              <span class="detail-label">Budget</span>
+              <span class="detail-text">{{ formatCurrency(signalement.budget) }}</span>
+            </div>
           </div>
 
-          <div v-if="signalement.entreprise" class="detail-item">
-            <ion-icon :icon="businessOutline"></ion-icon>
-            <span class="detail-text">{{ signalement.entreprise }}</span>
+          <div v-if="signalement.entreprise" class="detail-item detail-item--full">
+            <ion-icon :icon="businessOutline" class="detail-icon"></ion-icon>
+            <div class="detail-content">
+              <span class="detail-label">Entreprise</span>
+              <span class="detail-text">{{ signalement.entreprise }}</span>
+            </div>
+          </div>
+
+          <div v-if="signalement.date_modification" class="detail-item detail-item--full">
+            <ion-icon :icon="timeOutline" class="detail-icon"></ion-icon>
+            <div class="detail-content">
+              <span class="detail-label">Dernière mise à jour</span>
+              <span class="detail-text">{{ formatDate(signalement.date_modification) }}</span>
+            </div>
           </div>
         </div>
 
         <!-- Coordonnées -->
         <div class="signalement-coords">
-          <span>📍 {{ signalement.latitude.toFixed(6) }}, {{ signalement.longitude.toFixed(6) }}</span>
+          <ion-icon :icon="locationOutline" style="color: #6B4FFF; margin-right: 6px;"></ion-icon>
+          <span>{{ signalement.latitude.toFixed(6) }}, {{ signalement.longitude.toFixed(6) }}</span>
         </div>
       </div>
     </div>
@@ -80,17 +104,19 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { IonModal, IonButton, IonIcon } from '@ionic/vue';
-import {
-  closeOutline,
-  calendarOutline,
-  locationOutline,
-  resizeOutline,
-  walletOutline,
-  businessOutline
-} from 'ionicons/icons';
 import type { Signalement } from '@/models';
 import { getStatusColor, getStatusIcon, getTypeLabel, SIGNALEMENT_STATUS } from '@/models';
 import { formatDate, formatCurrency, formatSurface } from '@/utils/formatters';
+import {
+  closeOutline,
+  calendarOutline,
+  carOutline,
+  resizeOutline,
+  walletOutline,
+  businessOutline,
+  timeOutline,
+  locationOutline
+} from 'ionicons/icons';
 
 interface Props {
   isOpen: boolean;
@@ -106,7 +132,7 @@ const statusColor = computed(() => {
 });
 
 const statusIcon = computed(() => {
-  if (!props.signalement) return '❓';
+  if (!props.signalement) return '';
   return getStatusIcon(props.signalement.statut);
 });
 
@@ -286,19 +312,40 @@ const handleDismiss = () => {
 
 .detail-item {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  align-items: flex-start;
+  gap: 10px;
   font-size: 13px;
 }
 
-.detail-item ion-icon {
-  font-size: 18px;
+.detail-item--full {
+  grid-column: 1 / -1;
+}
+
+.detail-icon {
+  font-size: 16px;
   color: #6B4FFF;
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.detail-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.detail-label {
+  font-size: 11px;
+  color: #9CA3AF;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .detail-text {
   color: #000000;
-  font-weight: 500;
+  font-weight: 600;
+  font-size: 14px;
 }
 
 .signalement-coords {

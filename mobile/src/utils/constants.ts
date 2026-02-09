@@ -13,15 +13,20 @@ export const MAP_CONFIG = {
   DEFAULT_ZOOM: 13,
   MIN_ZOOM: 10,
   MAX_ZOOM: 18,
-  TILE_URL: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-  TILE_ATTRIBUTION: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+  // Tuiles raster OSM (fallback)
+  TILE_URL: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+  TILE_ATTRIBUTION: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+  // Style vectoriel MapLibre GL (optimisé)
+  VECTOR_STYLE_URL: 'https://tiles.openfreemap.org/styles/liberty'
 };
 
 // Configuration des sessions
 export const SESSION_CONFIG = {
   MAX_LOGIN_ATTEMPTS: 3,
+  SESSION_DURATION_MS: 24 * 60 * 60 * 1000, // 24 heures en millisecondes
   TOKEN_KEY: 'auth_token',
-  USER_KEY: 'auth_user'
+  USER_KEY: 'auth_user',
+  SESSION_START_KEY: 'session_start'
 };
 
 // Couleurs du thème (inspiré Magic Earth)

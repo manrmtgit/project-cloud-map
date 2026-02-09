@@ -7,7 +7,7 @@
       <!-- Bouton Couches/Options (haut droit) -->
       <ion-fab vertical="top" horizontal="end" slot="fixed" class="fab-options">
         <ion-fab-button size="small" color="light" @click="showLayerOptions = true">
-          <ion-icon :icon="layersOutline"></ion-icon>
+          <ion-icon :icon="layersOutline" size="small"></ion-icon>
         </ion-fab-button>
       </ion-fab>
 
@@ -20,14 +20,14 @@
             @click="centerOnUserLocation"
         >
           <ion-spinner v-if="mapStore.isLocating" name="crescent"></ion-spinner>
-          <ion-icon v-else :icon="locateOutline"></ion-icon>
+          <ion-icon v-else :icon="locateOutline" size="small"></ion-icon>
         </ion-fab-button>
       </ion-fab>
 
-      <!-- Bouton créer signalement (centre bas) -->
+      <!-- Bouton créer signalement (bas droit, sous le bouton localisation) -->
       <ion-fab
           vertical="bottom"
-          horizontal="center"
+          horizontal="end"
           slot="fixed"
           class="fab-create"
           v-if="!mapStore.isPlacingMarker"
@@ -40,7 +40,7 @@
       <!-- Mode placement de marqueur -->
       <div v-if="mapStore.isPlacingMarker" class="placing-mode">
         <div class="placing-instructions">
-          <ion-icon :icon="locationOutline"></ion-icon>
+          <ion-icon :icon="locationOutline" style="font-size: 18px;"></ion-icon>
           <span>Cliquez sur la carte pour positionner le signalement</span>
         </div>
         <div class="placing-actions">
@@ -69,7 +69,7 @@
             :color="signalementsStore.showOnlyMine ? 'primary' : 'medium'"
             @click="toggleMySignalements"
         >
-          <ion-icon :icon="personOutline"></ion-icon>
+          <ion-icon :icon="personOutline" style="margin-right: 6px; font-size: 16px;"></ion-icon>
           <ion-label>Mes signalements ({{ signalementsStore.myCount }})</ion-label>
         </ion-chip>
 
@@ -81,7 +81,7 @@
               class="search-result-item"
               @click="selectSearchResult(result)"
           >
-            <ion-icon :icon="locationOutline"></ion-icon>
+            <ion-icon :icon="locationOutline" style="color: #6B4FFF; font-size: 20px;"></ion-icon>
             <span>{{ result.display_name }}</span>
           </div>
         </div>
@@ -115,36 +115,39 @@
 </template>
 
 <script setup lang="ts">
-import {ref, onMounted, onUnmounted, watch} from 'vue';
+import {ref, onMounted, onUnmounted, watch, nextTick} from 'vue';
 import {
   IonPage,
   IonContent,
   IonFab,
   IonFabButton,
-  IonIcon,
   IonSearchbar,
   IonChip,
   IonLabel,
   IonButton,
   IonSpinner,
   IonActionSheet,
-  toastController
+  IonIcon,
+  toastController,
+  onIonViewDidEnter
 } from '@ionic/vue';
-import {
-  addOutline,
-  locateOutline,
-  layersOutline,
-  locationOutline,
-  personOutline
-} from 'ionicons/icons';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import 'maplibre-gl/dist/maplibre-gl.css';
+import '@maplibre/maplibre-gl-leaflet';
 import {useMapStore, useSignalementsStore} from '@/stores';
 import {mapService} from '@/services';
 import {MAP_CONFIG, SUCCESS_MESSAGES, ERROR_MESSAGES} from '@/utils/constants';
 import type {Signalement, CreateSignalementData} from '@/models';
 import SignalementBottomSheet from '@/components/SignalementBottomSheet.vue';
 import CreateSignalementModal from '@/components/CreateSignalementModal.vue';
+import {
+  layersOutline,
+  locateOutline,
+  addOutline,
+  locationOutline,
+  personOutline
+} from 'ionicons/icons';
 
 const mapStore = useMapStore();
 const signalementsStore = useSignalementsStore();
@@ -190,9 +193,21 @@ onMounted(async () => {
     zoomControl: false
   });
 
-  L.tileLayer(MAP_CONFIG.TILE_URL, {
-    attribution: MAP_CONFIG.TILE_ATTRIBUTION
-  }).addTo(map);
+  // Utiliser MapLibre GL pour un rendu vectoriel optimisé (WebGL)
+  try {
+    (L as any).maplibreGL({
+      style: MAP_CONFIG.VECTOR_STYLE_URL || 'https://tiles.openfreemap.org/styles/liberty'
+    }).addTo(map);
+  } catch (e) {
+    // Fallback vers les tuiles raster si MapLibre échoue
+    L.tileLayer(MAP_CONFIG.TILE_URL, {
+      attribution: MAP_CONFIG.TILE_ATTRIBUTION,
+      subdomains: ['a', 'b', 'c'],
+      updateWhenIdle: true,
+      updateWhenZooming: false,
+      keepBuffer: 4
+    }).addTo(map);
+  }
 
   markersLayer = L.layerGroup().addTo(map);
 
@@ -207,11 +222,24 @@ onMounted(async () => {
   // S'abonner aux signalements
   unsubscribe = signalementsStore.subscribeToUpdates();
 
+  // Forcer le redimensionnement après le rendu initial
+  await nextTick();
+  setTimeout(() => {
+    map?.invalidateSize();
+  }, 200);
+
   // Obtenir la position de l'utilisateur
   await mapStore.getCurrentLocation();
   if (mapStore.userLocation) {
     updateUserMarker();
     map.setView([mapStore.userLocation.lat, mapStore.userLocation.lng], 15);
+  }
+});
+
+// Fix critique: forcer invalidateSize quand la page Ionic devient visible
+onIonViewDidEnter(() => {
+  if (map) {
+    map.invalidateSize();
   }
 });
 
@@ -233,8 +261,8 @@ watch(
     {immediate: true}
 );
 
-// Mettre à jour les marqueurs sur la carte
-const updateMarkers = (signalements: Signalement[]) => {
+// Mettre à jour les marqueurs sur la carte (function declaration pour le hoisting)
+function updateMarkers(signalements: Signalement[]) {
   if (!markersLayer || !map) return;
 
   markersLayer.clearLayers();
@@ -249,7 +277,7 @@ const updateMarkers = (signalements: Signalement[]) => {
 
     markersLayer?.addLayer(marker);
   });
-};
+}
 
 // Mettre à jour le marqueur utilisateur
 const updateUserMarker = () => {
@@ -288,7 +316,9 @@ const updatePlacingMarker = (lat: number, lng: number) => {
           box-shadow: 0 3px 10px rgba(0,0,0,0.3);
           animation: bounce 0.5s ease;
         ">
-          <span style="font-size: 18px;">📍</span>
+          <span style="font-size: 18px;">
+            <svg width="18" height="18" viewBox="0 0 512 512" fill="#6B4FFF"><path d="M256 0C167.6 0 96 71.6 96 160c0 128 160 352 160 352s160-224 160-352C416 71.6 344.4 0 256 0zm0 240c-44.1 0-80-35.9-80-80s35.9-80 80-80 80 35.9 80 80-35.9 80-80 80z"/></svg>
+          </span>
         </div>
       `,
       iconSize: [40, 40],
@@ -419,21 +449,29 @@ const selectSearchResult = (result: any) => {
 const setMapStyle = (style: string) => {
   if (!map) return;
 
-  // Supprimer les tuiles actuelles
+  // Supprimer les couches de tuiles actuelles
   map.eachLayer((layer) => {
-    if (layer instanceof L.TileLayer) {
+    if (layer instanceof L.TileLayer || (layer as any)._maplibreMap) {
       map?.removeLayer(layer);
     }
   });
 
-  let tileUrl = MAP_CONFIG.TILE_URL;
   if (style === 'satellite') {
-    tileUrl = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+      attribution: MAP_CONFIG.TILE_ATTRIBUTION
+    }).addTo(map);
+  } else {
+    try {
+      (L as any).maplibreGL({
+        style: MAP_CONFIG.VECTOR_STYLE_URL || 'https://tiles.openfreemap.org/styles/liberty'
+      }).addTo(map);
+    } catch {
+      L.tileLayer(MAP_CONFIG.TILE_URL, {
+        attribution: MAP_CONFIG.TILE_ATTRIBUTION,
+        subdomains: ['a', 'b', 'c']
+      }).addTo(map);
+    }
   }
-
-  L.tileLayer(tileUrl, {
-    attribution: MAP_CONFIG.TILE_ATTRIBUTION
-  }).addTo(map);
 };
 </script>
 
@@ -454,22 +492,25 @@ const setMapStyle = (style: string) => {
 }
 
 .fab-location {
-  margin-bottom: 180px;
+  margin-bottom: 200px;
   margin-right: 16px;
 }
 
 .fab-create {
-  margin-bottom: 120px;
+  margin-bottom: 130px;
+  margin-right: 16px;
 }
 
 .fab-create ion-fab-button {
   --background: #6B4FFF;
+  --background-hover: #5A3FD9;
   width: 56px;
   height: 56px;
+  --box-shadow: 0 6px 20px rgba(107, 79, 255, 0.4);
 }
 
 ion-fab-button[size="small"] {
-  --box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  --box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
 }
 
 .placing-mode {
@@ -507,12 +548,12 @@ ion-fab-button[size="small"] {
   bottom: 0;
   left: 0;
   right: 0;
-  padding: 12px 16px;
-  padding-bottom: calc(12px + env(safe-area-inset-bottom));
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
   background: white;
   border-radius: 24px 24px 0 0;
-  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.08);
   z-index: 1000;
+  backdrop-filter: blur(10px);
 }
 
 ion-searchbar {

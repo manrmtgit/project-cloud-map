@@ -9,6 +9,18 @@ export type SignalementType =
 // Statuts possibles
 export type SignalementStatut = 'nouveau' | 'en_cours' | 'termine';
 
+// Import des icônes Ionic
+import {
+  warningOutline,
+  gitBranchOutline,
+  arrowDownOutline,
+  waterOutline,
+  helpCircleOutline,
+  alertCircleOutline,
+  constructOutline,
+  checkmarkCircleOutline
+} from 'ionicons/icons';
+
 // Interface principale Signalement
 export interface Signalement {
   id: string;
@@ -63,18 +75,18 @@ export interface SignalementsState {
 
 // Configuration des types de signalement
 export const SIGNALEMENT_TYPES: { value: SignalementType; label: string; icon: string }[] = [
-  { value: 'nid_de_poule', label: 'Nid de poule', icon: '🕳️' },
-  { value: 'fissure', label: 'Fissure', icon: '🔀' },
-  { value: 'affaissement', label: 'Affaissement', icon: '⬇️' },
-  { value: 'inondation', label: 'Inondation', icon: '💧' },
-  { value: 'autre', label: 'Autre', icon: '❓' }
+  { value: 'nid_de_poule', label: 'Nid de poule', icon: warningOutline },
+  { value: 'fissure', label: 'Fissure', icon: gitBranchOutline },
+  { value: 'affaissement', label: 'Affaissement', icon: arrowDownOutline },
+  { value: 'inondation', label: 'Inondation', icon: waterOutline },
+  { value: 'autre', label: 'Autre', icon: helpCircleOutline }
 ];
 
 // Configuration des statuts
 export const SIGNALEMENT_STATUS: { value: SignalementStatut; label: string; color: string; icon: string }[] = [
-  { value: 'nouveau', label: 'Nouveau', color: '#e74c3c', icon: '⚠️' },
-  { value: 'en_cours', label: 'En cours', color: '#f39c12', icon: '🔧' },
-  { value: 'termine', label: 'Terminé', color: '#27ae60', icon: '✅' }
+  { value: 'nouveau', label: 'Nouveau', color: '#e74c3c', icon: alertCircleOutline },
+  { value: 'en_cours', label: 'En cours', color: '#f39c12', icon: constructOutline },
+  { value: 'termine', label: 'Terminé', color: '#27ae60', icon: checkmarkCircleOutline }
 ];
 
 // Helper pour obtenir la couleur d'un statut
@@ -86,7 +98,7 @@ export const getStatusColor = (statut: SignalementStatut): string => {
 // Helper pour obtenir l'icône d'un statut
 export const getStatusIcon = (statut: SignalementStatut): string => {
   const status = SIGNALEMENT_STATUS.find(s => s.value === statut);
-  return status?.icon || '❓';
+  return status?.icon || helpCircleOutline;
 };
 
 // Helper pour obtenir le label d'un type
