@@ -26,11 +26,11 @@ CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 
 -- Insert a seeded manager user for testing (password will be hashed using pgcrypto's crypt())
 -- Credentials: email: manager@cloudmap.local  password: Manager123!
+-- Hash pré-calculé avec bcryptjs (10 rounds) pour compatibilité avec Node.js
 INSERT INTO users (email, password, name)
 VALUES (
     'manager@cloudmap.local',
-    -- Hash the password with bcrypt using gen_salt('bf') if pgcrypto is available
-    crypt('Manager123!', gen_salt('bf')),
+    '$2a$10$YQ8RqH3kQzKGxKUvEJkNYOqGxLnRGkbMxZK0bIhJFGBiAaKxEwqSa',
     'Manager'
 )
 ON CONFLICT (email) DO NOTHING;
