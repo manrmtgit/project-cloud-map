@@ -26,7 +26,7 @@
     <ion-content class="ion-padding">
       <!-- Localisation -->
       <div class="location-preview" v-if="location">
-        <ion-icon :icon="locationOutline"></ion-icon>
+        <ion-icon :icon="locationOutline" style="color: #6B4FFF; font-size: 20px;"></ion-icon>
         <span>{{ location.lat.toFixed(6) }}, {{ location.lng.toFixed(6) }}</span>
       </div>
 
@@ -83,7 +83,7 @@
             </div>
             <!-- Bouton ajouter plus si moins de 5 photos -->
             <div v-if="photoPreviews.length < 5" class="add-photo-btn" @click="showPhotoOptions = true">
-              <ion-icon :icon="addOutline"></ion-icon>
+              <ion-icon :icon="addOutline" style="font-size: 24px; color: #6B4FFF;"></ion-icon>
             </div>
           </div>
           <div v-else class="photo-buttons">
@@ -125,19 +125,19 @@ import {
   IonTextarea,
   IonSelect,
   IonSelectOption,
-  IonIcon,
-  IonActionSheet
+  IonActionSheet,
+  IonIcon
 } from '@ionic/vue';
-import {
-  locationOutline,
-  cameraOutline,
-  imagesOutline,
-  closeCircleOutline,
-  addOutline
-} from 'ionicons/icons';
 import {Camera, CameraResultType, CameraSource} from '@capacitor/camera';
 import {SIGNALEMENT_TYPES, type SignalementType, type CreateSignalementData} from '@/models';
 import {isValidTitle, isValidDescription, ValidationMessages} from '@/utils/validators';
+import {
+  cameraOutline,
+  imagesOutline,
+  locationOutline,
+  closeCircleOutline,
+  addOutline
+} from 'ionicons/icons';
 
 interface Props {
   isOpen: boolean;

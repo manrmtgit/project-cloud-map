@@ -1,0 +1,135 @@
+Projet Cloud S5Travail en groupe de 4.
+Promotion 17
+V1 du 13 janvier 2026
+V2 du 20 janvier 2026
+V3 du 3 février 2026 
+
+Objectifs
+Mettre en place un projet de fournisseur d’identité sur un des plateformes suivantes (docker) :
+Php mvc (pas de flightPhp)
+Java
+.Net
+Node Js
+API seulement (pas d’interface)
+
+
+
+
+Module Authentification
+On utilise Firebase s’il y a une connexion Internet ( à ignorer )  
+Base local uniquement (postgres) dans docker 
+Ci-dessous les fonctionnalités minimales
+Authentification (email/pwd) 
+Inscription
+Modification infos users
+
+
+
+Module Authentification
+Ci-dessous les fonctionnalités minimales
+Durée de vie des sessions
+Limite des nombres ( paramétrable, par défaut 3 ) de tentatives de connexion pour un compte
+Un API REST peut réinitialiser le blocage pour un utilisateur donné 
+Documentation API via Swagger
+
+
+
+Module Cartes
+Installer un serveur de carte Offline sur Docker
+Télécharger la ville d’Antananarivo avec les rues
+Utiliser leaflet pour afficher/manipuler la carte dans l’application web
+
+
+Module Web
+C’est une application qui permet de suivre les travaux routiers sur la ville d’Antananarivo pour les visiteurs et de gérer les données pour le manager
+
+
+
+
+
+Module Web
+Utiliser l’API Rest Authentification pour se logguer et créer un compte
+2 profils
+Visiteur (sans compte)
+Manager (compte à créer par défaut )
+
+
+
+Module Web
+Visiteurs
+Voir la carte avec les différents points représentants les problèmes routiers
+
+
+
+Module Web
+Visiteurs
+Lorsqu’on survole un point, on doit voir les infos sur le problème ( date, status (nouveau, en cours, terminé), surface en m2, budget, entreprise concerné, un lien pour voir les photos)
+Voir le tableau de récapitulation actuel ( Nb de point, total surface, avancement en %, total budget)
+
+
+
+Module Web
+Manager
+Création d’un compte utilisateur
+Bouton synchronisation
+Récupérer les signalements en ligne (firebase)
+Envoi les données nécessaires en ligne (firebase) pour un affichage sur mobile
+Envoi des comptes mobiles créés
+Page pour débloquer les utilisateurs bloqués
+gestion des infos nécessaires sur chaque signalement (surface en m2, budget, entreprise concerné, …)
+Modifier les statuts de chaque signalement
+
+
+
+Module Web(2)
+Manager
+Pour calculer l’avancement
+nouveau = 0%
+en cours = 50%
+terminé = 100%
+Pour chaque étape d’avancement , on spécifie les dates
+Créer un tableau de statistiques pour voir le délai de traitement moyen des travaux
+
+
+
+Module Mobile
+Utilisateurs 
+Se loguer sur firebase en ligne (inscription via le manager dans l’application web uniquement)
+Signaler les problèmes routiers à partir du map (utiliser leaflet et openstreetmap en ligne)
+Localisation 
+Ajouter 1 ou plusieurs photos
+Afficher la carte et recap (cf fonctionnalités visiteurs)
+Mettre un filtre : afficher mes signalements uniquement
+Recevoir une notification à chaque changement de status de mes signalements
+
+
+
+Notes
+Fonctionnalités
+Code
+Dans github ou gitlab public
+Design
+Suivi des tâches
+APK pour mobile
+Documentation technique
+Aléa possible
+
+
+Technique 
+Web
+React/Angular/VueJS (au choix mais différent du mobile)
+Mobile
+Ionic
+React/Angular/VueJS ( au choix mais différent du web )
+Base local
+Postgres
+
+
+
+Contenu Documentation Technique 
+Projet
+Mettre le MCD
+Présenter les scénarios d’utilisations avec copie d’écrans
+Liste des membres
+Nom et prénoms et NumETU
+

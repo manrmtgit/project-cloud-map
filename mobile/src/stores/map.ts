@@ -35,7 +35,7 @@ export const useMapStore = defineStore('map', {
       this.locationError = null;
 
       try {
-        // Vérifier les permissions
+        // Vérifier les permissions via Capacitor
         const permission = await Geolocation.checkPermissions();
 
         if (permission.location !== 'granted') {
@@ -45,7 +45,7 @@ export const useMapStore = defineStore('map', {
           }
         }
 
-        // Obtenir la position
+        // Obtenir la position via Capacitor
         const position: Position = await Geolocation.getCurrentPosition({
           enableHighAccuracy: true,
           timeout: 10000
@@ -59,6 +59,26 @@ export const useMapStore = defineStore('map', {
         this.userLocation = location;
         return location;
       } catch (error: any) {
+        // Fallback vers l'API Geolocation du navigateur
+        try {
+          if ('geolocation' in navigator) {
+            const browserPosition = await new Promise<GeolocationPosition>((resolve, reject) => {
+              navigator.geolocation.getCurrentPosition(resolve, reject, {
+                enableHighAccuracy: true,
+                timeout: 10000
+              });
+            });
+            const location = {
+              lat: browserPosition.coords.latitude,
+              lng: browserPosition.coords.longitude
+            };
+            this.userLocation = location;
+            return location;
+          }
+        } catch (fallbackError: any) {
+          console.warn('Fallback geolocation failed:', fallbackError);
+        }
+
         this.locationError = error.message || 'Impossible d\'obtenir la position';
         console.error('Erreur de géolocalisation:', error);
         return null;
