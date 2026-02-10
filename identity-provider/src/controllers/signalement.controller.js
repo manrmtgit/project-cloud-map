@@ -1,4 +1,5 @@
 const { pool } = require('../config/database');
+const { syncSignalementToFirestore, isFirebaseEnabled } = require('../services/firebase');
 
 // Récupérer tous les signalements
 const getAllSignalements = async (req, res) => {

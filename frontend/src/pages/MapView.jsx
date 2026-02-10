@@ -1,13 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { signalementService } from '../services/signalement.api'
+import { hybridSignalementService } from '../services/hybridService'
 import StatsPanel from '../components/StatsPanel'
 import Legend from '../components/Legend'
+import ConnectionIndicator from '../components/ConnectionIndicator'
 import './MapView.css'
 
 const MapView = () => {
-  const { user, logout } = useAuth()
+  const { user, logout, connectionMode } = useAuth()
   const navigate = useNavigate()
   const mapContainer = useRef(null)
   const map = useRef(null)
@@ -95,8 +96,8 @@ const MapView = () => {
     const fetchData = async () => {
       try {
         const [signalementsData, statsData] = await Promise.all([
-          signalementService.getAll(),
-          signalementService.getStats()
+          hybridSignalementService.getAll(),
+          hybridSignalementService.getStats()
         ])
         setSignalements(Array.isArray(signalementsData) ? signalementsData : [])
         setStats(statsData)
@@ -237,6 +238,7 @@ const MapView = () => {
       <header className="header">
         <div className="header-left">
           <h1>🛣️ Signalement Routier - Antananarivo</h1>
+          <ConnectionIndicator />
           {user ? (
             <span className={`badge ${isManager ? 'manager' : 'user'}`}>
               {isManager ? '👔 Manager' : '👤 Utilisateur'}
