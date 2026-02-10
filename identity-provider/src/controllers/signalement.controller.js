@@ -10,7 +10,7 @@ const getAllSignalements = async (req, res) => {
         let query = `
             SELECT 
                 s.id, s.titre, s.description, s.latitude, s.longitude, 
-                s.statut, s.avancement, s.surface_m2, s.budget, s.entreprise,
+                s.statut, s.avancement, s.niveau, s.surface_m2, s.budget, s.entreprise,
                 s.user_id, s.date_nouveau, s.date_en_cours, s.date_termine,
                 s.date_creation, s.date_mise_a_jour,
                 COALESCE(
@@ -143,7 +143,7 @@ const getSignalementById = async (req, res) => {
         const query = `
             SELECT 
                 s.id, s.titre, s.description, s.latitude, s.longitude, 
-                s.statut, s.avancement, s.surface_m2, s.budget, s.entreprise,
+                s.statut, s.avancement, s.niveau, s.surface_m2, s.budget, s.entreprise,
                 s.user_id, s.date_nouveau, s.date_en_cours, s.date_termine,
                 s.date_creation, s.date_mise_a_jour,
                 COALESCE(
@@ -183,7 +183,7 @@ const getSignalementById = async (req, res) => {
 // Créer un signalement
 const createSignalement = async (req, res) => {
     try {
-        const { titre, description, latitude, longitude, surface_m2, budget, entreprise, user_id } = req.body;
+        const { titre, description, latitude, longitude, niveau, surface_m2, entreprise, user_id } = req.body;
         
         if (!titre || !latitude || !longitude) {
             return res.status(400).json({ 
@@ -191,15 +191,26 @@ const createSignalement = async (req, res) => {
                 message: 'Titre, latitude et longitude sont requis' 
             });
         }
+
+        // Validation du niveau (1 à 10)
+        const niveauVal = parseInt(niveau) || 1;
+        if (niveauVal < 1 || niveauVal > 10) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Le niveau doit être entre 1 et 10' 
+            });
+        }
         
+        // Le budget est calculé automatiquement par le trigger PostgreSQL
+        // budget = prix_par_m2 * niveau * surface_m2
         const query = `
-            INSERT INTO signalements (titre, description, latitude, longitude, surface_m2, budget, entreprise, user_id, statut, avancement, date_nouveau)
+            INSERT INTO signalements (titre, description, latitude, longitude, niveau, surface_m2, entreprise, user_id, statut, avancement, date_nouveau)
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'NOUVEAU', 0, NOW())
             RETURNING *
         `;
         
         const result = await pool.query(query, [
-            titre, description, latitude, longitude, surface_m2, budget, entreprise, user_id || null
+            titre, description, latitude, longitude, niveauVal, surface_m2 || null, entreprise || null, user_id || null
         ]);
         
         res.status(201).json({
@@ -220,7 +231,7 @@ const createSignalement = async (req, res) => {
 const updateSignalement = async (req, res) => {
     try {
         const { id } = req.params;
-        const { titre, description, statut, surface_m2, budget, entreprise, user_id_modifier } = req.body;
+        const { titre, description, statut, niveau, surface_m2, entreprise, user_id_modifier } = req.body;
         
         // Récupérer l'ancien statut pour la notification
         const oldResult = await pool.query('SELECT statut, user_id FROM signalements WHERE id = $1', [id]);
@@ -229,6 +240,17 @@ const updateSignalement = async (req, res) => {
         }
         const oldStatut = oldResult.rows[0].statut;
         const signalementUserId = oldResult.rows[0].user_id;
+
+        // Validation du niveau si fourni
+        if (niveau !== undefined) {
+            const niveauVal = parseInt(niveau);
+            if (niveauVal < 1 || niveauVal > 10) {
+                return res.status(400).json({ 
+                    success: false, 
+                    message: 'Le niveau doit être entre 1 et 10' 
+                });
+            }
+        }
         
         // Calculer l'avancement et les dates selon le statut
         let avancement = 0;
@@ -244,6 +266,7 @@ const updateSignalement = async (req, res) => {
             dateUpdate = ', date_en_cours = COALESCE(date_en_cours, NOW()), date_termine = NOW()';
         }
         
+        // Le budget est recalculé automatiquement par le trigger si niveau ou surface_m2 changent
         const query = `
             UPDATE signalements 
             SET 
@@ -251,8 +274,8 @@ const updateSignalement = async (req, res) => {
                 description = COALESCE($2, description),
                 statut = COALESCE($3, statut),
                 avancement = $4,
-                surface_m2 = COALESCE($5, surface_m2),
-                budget = COALESCE($6, budget),
+                niveau = COALESCE($5, niveau),
+                surface_m2 = COALESCE($6, surface_m2),
                 entreprise = COALESCE($7, entreprise)
                 ${dateUpdate}
             WHERE id = $8
@@ -260,7 +283,7 @@ const updateSignalement = async (req, res) => {
         `;
         
         const result = await pool.query(query, [
-            titre, description, statut, avancement, surface_m2, budget, entreprise, id
+            titre, description, statut, avancement, niveau || null, surface_m2, entreprise, id
         ]);
         
         // Créer une notification si le statut a changé
@@ -546,6 +569,18 @@ const getDetailedStats = async (req, res) => {
             GROUP BY TO_CHAR(date_creation, 'YYYY-MM')
             ORDER BY mois DESC
         `);
+
+        // Stats par niveau
+        const niveauStats = await pool.query(`
+            SELECT 
+                niveau,
+                COUNT(*) as total,
+                COALESCE(SUM(budget), 0) as budget_total,
+                COALESCE(SUM(surface_m2), 0) as surface_totale
+            FROM signalements
+            GROUP BY niveau
+            ORDER BY niveau
+        `);
         
         const delais = delaisQuery.rows[0];
         
@@ -560,12 +595,124 @@ const getDetailedStats = async (req, res) => {
                     max_jours: delais.max_jours ? parseFloat(delais.max_jours).toFixed(1) : null
                 },
                 par_entreprise: entrepriseStats.rows,
-                par_mois: monthlyStats.rows
+                par_mois: monthlyStats.rows,
+                par_niveau: niveauStats.rows
             }
         });
     } catch (error) {
         console.error('Erreur getDetailedStats:', error);
         res.status(500).json({ success: false, message: 'Erreur lors de la récupération des statistiques' });
+    }
+};
+
+// ===== BACKOFFICE : Gestion du prix par m² =====
+
+// Récupérer la configuration backoffice
+const getBackofficeConfig = async (req, res) => {
+    try {
+        const result = await pool.query('SELECT * FROM config_backoffice ORDER BY cle');
+        res.json({
+            success: true,
+            config: result.rows.reduce((acc, row) => {
+                acc[row.cle] = {
+                    valeur: parseFloat(row.valeur),
+                    description: row.description,
+                    date_mise_a_jour: row.date_mise_a_jour
+                };
+                return acc;
+            }, {})
+        });
+    } catch (error) {
+        console.error('Erreur getBackofficeConfig:', error);
+        res.status(500).json({ success: false, message: 'Erreur lors de la récupération de la configuration' });
+    }
+};
+
+// Mettre à jour le prix par m²
+const updatePrixParM2 = async (req, res) => {
+    try {
+        const { prix_par_m2 } = req.body;
+
+        if (!prix_par_m2 || isNaN(prix_par_m2) || prix_par_m2 <= 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'Le prix par m² doit être un nombre positif'
+            });
+        }
+
+        // Mettre à jour le prix dans la config
+        const result = await pool.query(
+            `UPDATE config_backoffice SET valeur = $1, date_mise_a_jour = NOW() WHERE cle = 'prix_par_m2' RETURNING *`,
+            [prix_par_m2]
+        );
+
+        if (result.rows.length === 0) {
+            // Créer si n'existe pas
+            await pool.query(
+                `INSERT INTO config_backoffice (cle, valeur, description) VALUES ('prix_par_m2', $1, 'Prix forfaitaire par mètre carré')`,
+                [prix_par_m2]
+            );
+        }
+
+        // Recalculer tous les budgets existants avec le nouveau prix
+        const recalcul = await pool.query(`
+            UPDATE signalements 
+            SET budget = $1 * niveau * surface_m2
+            WHERE surface_m2 IS NOT NULL AND niveau IS NOT NULL
+            RETURNING id, titre, niveau, surface_m2, budget
+        `, [prix_par_m2]);
+
+        res.json({
+            success: true,
+            message: `Prix par m² mis à jour à ${prix_par_m2} Ar. ${recalcul.rowCount} signalement(s) recalculé(s).`,
+            prix_par_m2: parseFloat(prix_par_m2),
+            signalements_recalcules: recalcul.rowCount,
+            details: recalcul.rows
+        });
+    } catch (error) {
+        console.error('Erreur updatePrixParM2:', error);
+        res.status(500).json({ success: false, message: 'Erreur lors de la mise à jour du prix par m²' });
+    }
+};
+
+// Simuler le calcul du budget pour un signalement
+const simulerBudget = async (req, res) => {
+    try {
+        const { niveau, surface_m2 } = req.query;
+
+        if (!niveau || !surface_m2) {
+            return res.status(400).json({
+                success: false,
+                message: 'Les paramètres niveau et surface_m2 sont requis'
+            });
+        }
+
+        const niveauVal = parseInt(niveau);
+        const surfaceVal = parseFloat(surface_m2);
+
+        if (niveauVal < 1 || niveauVal > 10) {
+            return res.status(400).json({ success: false, message: 'Le niveau doit être entre 1 et 10' });
+        }
+
+        // Récupérer le prix par m² actuel
+        const configResult = await pool.query("SELECT valeur FROM config_backoffice WHERE cle = 'prix_par_m2'");
+        const prixParM2 = configResult.rows.length > 0 ? parseFloat(configResult.rows[0].valeur) : 50000;
+
+        const budget = prixParM2 * niveauVal * surfaceVal;
+
+        res.json({
+            success: true,
+            simulation: {
+                prix_par_m2: prixParM2,
+                niveau: niveauVal,
+                surface_m2: surfaceVal,
+                budget_calcule: budget,
+                formule: `${prixParM2} × ${niveauVal} × ${surfaceVal} = ${budget} Ar`
+            }
+        });
+    } catch (error) {
+        console.error('Erreur simulerBudget:', error);
+        res.status(500).json({ success: false, message: 'Erreur lors de la simulation' });
     }
 };
 
@@ -583,5 +730,8 @@ module.exports = {
     deletePhoto,
     getNotifications,
     markNotificationRead,
-    markAllNotificationsRead
+    markAllNotificationsRead,
+    getBackofficeConfig,
+    updatePrixParM2,
+    simulerBudget
 };

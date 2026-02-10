@@ -52,6 +52,11 @@ router.get('/notifications/:userId', signalementController.getNotifications);
 router.put('/notifications/:notifId/read', signalementController.markNotificationRead);
 router.put('/notifications/:userId/read-all', signalementController.markAllNotificationsRead);
 
+// Routes Backoffice (Manager)
+router.get('/backoffice/config', signalementController.getBackofficeConfig);
+router.put('/backoffice/prix-m2', signalementController.updatePrixParM2);
+router.get('/backoffice/simuler-budget', signalementController.simulerBudget);
+
 // Routes Firebase Sync
 router.post('/sync/push', firebaseSyncController.pushToFirebase);
 router.post('/sync/pull', firebaseSyncController.pullFromFirebase);
