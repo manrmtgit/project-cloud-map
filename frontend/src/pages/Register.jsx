@@ -44,7 +44,7 @@ const Register = () => {
 
     try {
       await register({
-        username: formData.username,
+        name: formData.username,
         email: formData.email,
         password: formData.password
       })
