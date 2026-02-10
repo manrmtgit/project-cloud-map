@@ -1,7 +1,0 @@
-La carte dans la page web ne s'affiche pas tant que je n'appuie sur la touche F12 a regler.
-le scenario les fonctionnaliter de L'utilisateur dans le module mobile est similaire a celui du visiteurs dans le module web.
-Pour le module d'authentification on a duree de vie de sessions, limite des nombres de tentives de connexion parametrable, a implementer pour le mobile la verification ce fait pas email si le mot de passe est incorrect n fois pour ce mail alors le compte est bloquer.
-Rend le design du mobile encore plus joli, plus moderne, plus pro, utilisons les icones de ionic donc a changer pour les emojis.
-Bien maintenir le flow utilisateur comme l'affichage des inforamations de signalement, la position des boutons, le dashboard.
-Change l'icone de l'application, le launcher icon, le spash icon en ces images et non utiliser l'icon d'ionic par defaut.
-Comment faire pour les autres informations pour les signalements, et comment tester si la notification fonctionne parfaitement, car on va faire l'integration avec le web apres.

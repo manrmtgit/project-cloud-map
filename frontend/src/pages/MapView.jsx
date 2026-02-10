@@ -1,352 +1,306 @@
-import React, { useEffect, useRef, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { useAuth } from '../context/AuthContext'
-import { hybridSignalementService } from '../services/hybridService'
-import StatsPanel from '../components/StatsPanel'
-import Legend from '../components/Legend'
-import ConnectionIndicator from '../components/ConnectionIndicator'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
+import { signalementService } from '../services/api'
 import './MapView.css'
 
-const MapView = () => {
-  const { user, logout, connectionMode } = useAuth()
-  const navigate = useNavigate()
-  const mapContainer = useRef(null)
-  const map = useRef(null)
-  const [signalements, setSignalements] = useState([])
-  const [stats, setStats] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [filterStatut, setFilterStatut] = useState('TOUS')
-  const [mapLoaded, setMapLoaded] = useState(false)
-  const markersRef = useRef([])
-  const popupRef = useRef(null)
-  
-  // État pour le modal des photos
-  const [photoModalOpen, setPhotoModalOpen] = useState(false)
-  const [selectedPhotos, setSelectedPhotos] = useState([])
-  const [selectedPhotoTitle, setSelectedPhotoTitle] = useState('')
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
 
-  // Vérifier si l'utilisateur est manager
-  const isManager = user?.role === 'manager' || user?.email === 'manager@cloudmap.local'
-
-  const handleLogout = () => {
-    logout()
-    navigate('/')
+const getPhotoSrc = (photo) => {
+  if (photo.base64_data) {
+    if (photo.base64_data.startsWith('data:')) return photo.base64_data
+    return `data:${photo.mimetype || 'image/jpeg'};base64,${photo.base64_data}`
   }
+  return `${API_URL}/uploads/${photo.filename}`
+}
 
-  // Icônes SVG par type de problème
-  const getMarkerIcon = (statut) => {
-    const icons = {
-      'NOUVEAU': `
+const statutLabel = (s) => {
+  const map = { NOUVEAU: 'Nouveau', EN_COURS: 'En cours', TERMINE: 'Terminé' }
+  return map[s] || s
+}
+
+/* ── SVG Pin-Drop Marker Icons ── */
+const svgToUrl = (svg) => `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
+
+const PIN_SVGS = {
+  NOUVEAU: svgToUrl(`
         <svg width="40" height="50" viewBox="0 0 40 50" xmlns="http://www.w3.org/2000/svg">
           <path d="M20 0 C31 0 40 9 40 20 C40 35 20 50 20 50 C20 50 0 35 0 20 C0 9 9 0 20 0Z" fill="#e74c3c"/>
           <circle cx="20" cy="20" r="12" fill="white"/>
           <text x="20" y="25" text-anchor="middle" font-size="16" font-weight="bold" fill="#e74c3c">!</text>
-        </svg>
-      `,
-      'EN_COURS': `
+        </svg>`),
+  EN_COURS: svgToUrl(`
         <svg width="40" height="50" viewBox="0 0 40 50" xmlns="http://www.w3.org/2000/svg">
           <path d="M20 0 C31 0 40 9 40 20 C40 35 20 50 20 50 C20 50 0 35 0 20 C0 9 9 0 20 0Z" fill="#f39c12"/>
           <circle cx="20" cy="20" r="12" fill="white"/>
           <path d="M14 20 L18 20 L18 14 L22 14 L22 20 L26 20 L20 26 Z" fill="#f39c12"/>
-        </svg>
-      `,
-      'TERMINE': `
+        </svg>`),
+  TERMINE: svgToUrl(`
         <svg width="40" height="50" viewBox="0 0 40 50" xmlns="http://www.w3.org/2000/svg">
           <path d="M20 0 C31 0 40 9 40 20 C40 35 20 50 20 50 C20 50 0 35 0 20 C0 9 9 0 20 0Z" fill="#27ae60"/>
           <circle cx="20" cy="20" r="12" fill="white"/>
           <path d="M14 20 L18 24 L26 16" stroke="#27ae60" stroke-width="3" fill="none" stroke-linecap="round"/>
-        </svg>
-      `
-    }
-    return icons[statut] || icons['NOUVEAU']
-  }
+        </svg>`)
+}
 
-  const formatBudget = (budget) => {
-    if (!budget) return 'Non défini'
-    return new Intl.NumberFormat('fr-MG', {
-      style: 'currency',
-      currency: 'MGA',
-      maximumFractionDigits: 0
-    }).format(budget)
-  }
+const MapView = () => {
+  const mapContainerRef = useRef(null)
+  const mapRef = useRef(null)
+  const markersRef = useRef([])
+  const popupRef = useRef(null)
+  const hoverTimeoutRef = useRef(null)
+  const [signalements, setSignalements] = useState([])
+  const [stats, setStats] = useState(null)
+  const [filter, setFilter] = useState('tous')
+  const [selectedSig, setSelectedSig] = useState(null)
+  const [showPhotos, setShowPhotos] = useState(false)
+  const [loading, setLoading] = useState(true)
 
-  const formatDate = (dateStr) => {
-    return new Date(dateStr).toLocaleDateString('fr-FR', {
-      day: '2-digit',
-      month: 'long',
-      year: 'numeric'
-    })
-  }
-
-  const getStatusLabel = (statut) => {
-    const labels = {
-      'NOUVEAU': 'Nouveau',
-      'EN_COURS': 'En cours',
-      'TERMINE': 'Terminé'
-    }
-    return labels[statut] || statut
-  }
-
-  const getStatusClass = (statut) => {
-    const classes = {
-      'NOUVEAU': 'status-nouveau',
-      'EN_COURS': 'status-en-cours',
-      'TERMINE': 'status-termine'
-    }
-    return classes[statut] || ''
-  }
-
-  // Fonction pour ouvrir le modal des photos
-  const openPhotoModal = (signalementId) => {
-    const signalement = signalements.find(s => s.id === signalementId)
-    if (signalement && signalement.photos && signalement.photos.length > 0) {
-      setSelectedPhotos(signalement.photos)
-      setSelectedPhotoTitle(signalement.titre)
-      setPhotoModalOpen(true)
-    }
-  }
-
-  // Rendre la fonction accessible globalement pour les popups
   useEffect(() => {
-    window.openPhotoModal = openPhotoModal
-    return () => {
-      delete window.openPhotoModal
-    }
-  }, [signalements])
-
-  // Charger les données
-  useEffect(() => {
-    const fetchData = async () => {
+    ;(async () => {
       try {
-        const [signalementsData, statsData] = await Promise.all([
-          hybridSignalementService.getAll(),
-          hybridSignalementService.getStats()
+        const [sigData, statsData] = await Promise.all([
+          signalementService.getAll(),
+          signalementService.getStats().catch(() => null)
         ])
-        setSignalements(Array.isArray(signalementsData) ? signalementsData : [])
-        setStats(statsData)
-      } catch (error) {
-        console.error('Erreur chargement données:', error)
-      } finally {
-        setLoading(false)
-      }
-    }
-    fetchData()
+        setSignalements(sigData.signalements || sigData || [])
+        if (statsData?.stats) {
+          const s = statsData.stats
+          setStats({
+            total: parseInt(s.total_signalements) || 0,
+            total_surface: parseFloat(s.total_surface_m2) || 0,
+            total_budget: parseFloat(s.total_budget) || 0,
+            avancement: parseFloat(s.avancement_global) || 0
+          })
+        }
+      } catch (e) { console.error('Erreur chargement signalements:', e) }
+      finally { setLoading(false) }
+    })()
   }, [])
 
-  // Initialiser la carte
   useEffect(() => {
-    if (map.current || !window.maplibregl) return
-
-    map.current = new window.maplibregl.Map({
-      container: mapContainer.current,
+    if (!mapContainerRef.current || mapRef.current) return
+    const map = new window.maplibregl.Map({
+      container: mapContainerRef.current,
       style: {
         version: 8,
         sources: {
-          'osm': {
+          osm: {
             type: 'raster',
-            tiles: [
-              'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
-            ],
+            tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
             tileSize: 256,
-            attribution: '© OpenStreetMap contributors'
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
           }
         },
-        layers: [
-          {
-            id: 'osm-layer',
-            type: 'raster',
-            source: 'osm',
-            minzoom: 0,
-            maxzoom: 19
-          }
-        ]
+        layers: [{ id: 'osm-tiles', type: 'raster', source: 'osm', minzoom: 0, maxzoom: 19 }]
       },
-      center: [47.5079, -18.8792],
-      zoom: 14
+      center: [47.52, -18.91],
+      zoom: 12
     })
-
-    map.current.addControl(new window.maplibregl.NavigationControl(), 'top-right')
-    map.current.addControl(new window.maplibregl.ScaleControl(), 'bottom-left')
-    
-    map.current.on('load', () => {
-      setMapLoaded(true)
-    })
-
+    map.addControl(new window.maplibregl.NavigationControl(), 'top-right')
+    mapRef.current = map
+    return () => { map.remove(); mapRef.current = null }
   }, [])
 
-  // Ajouter les marqueurs
+  const buildPopupHTML = useCallback((sig) => {
+    const badgeClass = sig.statut === 'TERMINE' ? 'success' : sig.statut === 'EN_COURS' ? 'warning' : 'danger'
+    const hasPhotos = sig.photos && sig.photos.length > 0 && sig.photos[0]?.id
+    return `
+      <div class="popup-content">
+        <div class="popup-title">${sig.titre || 'Signalement'}</div>
+        <div class="popup-row"><i class="fa-regular fa-calendar"></i> ${sig.date_creation ? new Date(sig.date_creation).toLocaleDateString('fr-FR') : '—'}</div>
+        <div class="popup-row"><i class="fa-solid fa-signal"></i> Statut: <span class="badge badge-${badgeClass}" style="margin-left:4px">${statutLabel(sig.statut)}</span></div>
+        <div class="popup-row"><i class="fa-solid fa-ruler-combined"></i> Surface: <strong>${sig.surface_m2 ? sig.surface_m2 + ' m²' : '—'}</strong></div>
+        <div class="popup-row"><i class="fa-solid fa-coins"></i> Budget: <strong>${sig.budget ? Number(sig.budget).toLocaleString('fr-FR') + ' Ar' : '—'}</strong></div>
+        <div class="popup-row"><i class="fa-solid fa-building"></i> Entreprise: ${sig.entreprise || '—'}</div>
+        <div class="popup-row"><i class="fa-solid fa-layer-group"></i> Niveau: <strong>${sig.niveau || 1}</strong>/10</div>
+        ${hasPhotos ? `<div class="popup-row popup-photos-link" data-sig-id="${sig.id}"><i class="fa-solid fa-images"></i> <a href="#">Voir les photos (${sig.photos.length})</a></div>` : ''}
+      </div>
+    `
+  }, [])
+
   useEffect(() => {
-    if (!map.current || !mapLoaded || signalements.length === 0) return
-
-    // Supprimer les anciens marqueurs
-    markersRef.current.forEach(marker => marker.remove())
+    if (!mapRef.current) return
+    markersRef.current.forEach(m => m.remove())
     markersRef.current = []
+    if (popupRef.current) { popupRef.current.remove(); popupRef.current = null }
 
-    // Supprimer popup existante
-    if (popupRef.current) {
-      popupRef.current.remove()
-    }
+    const filtered = filter === 'tous' ? signalements : signalements.filter(s => s.statut === filter)
 
-    // Filtrer les signalements
-    const filteredSignalements = filterStatut === 'TOUS' 
-      ? signalements 
-      : signalements.filter(s => s.statut === filterStatut)
+    filtered.forEach(sig => {
+      if (!sig.latitude || !sig.longitude) return
+      const lngLat = [parseFloat(sig.longitude), parseFloat(sig.latitude)]
 
-    // Ajouter les nouveaux marqueurs
-    filteredSignalements.forEach(signalement => {
+      // SVG pin-drop marker — img element prevents hover displacement
       const el = document.createElement('div')
-      el.className = 'custom-marker-icon'
-      el.innerHTML = getMarkerIcon(signalement.statut)
-      el.style.cursor = 'pointer'
-      el.style.width = '40px'
-      el.style.height = '50px'
+      el.style.cssText = 'cursor:pointer;line-height:0;'
+      const img = document.createElement('img')
+      img.src = PIN_SVGS[sig.statut] || PIN_SVGS.NOUVEAU
+      img.style.cssText = 'width:32px;height:44px;display:block;pointer-events:none;transition:transform .15s ease;transform-origin:bottom center;'
+      img.draggable = false
+      el.appendChild(img)
 
-      // Popup HTML avec infos détaillées
-      const popupHTML = `
-        <div class="marker-popup">
-          <div class="popup-header">
-            <span class="popup-status ${getStatusClass(signalement.statut)}">${getStatusLabel(signalement.statut)}</span>
-            <span class="popup-avancement">${signalement.avancement || 0}%</span>
-          </div>
-          <h3 class="popup-title">${signalement.titre}</h3>
-          ${signalement.description ? `<p class="popup-desc">${signalement.description}</p>` : ''}
-          <div class="popup-info-grid">
-            <div class="popup-info-item">
-              <span class="popup-label">📅 Date</span>
-              <span class="popup-value">${formatDate(signalement.date_creation)}</span>
-            </div>
-            <div class="popup-info-item">
-              <span class="popup-label">📐 Surface</span>
-              <span class="popup-value">${signalement.surface_m2 ? signalement.surface_m2 + ' m²' : 'Non définie'}</span>
-            </div>
-            <div class="popup-info-item">
-              <span class="popup-label">💰 Budget</span>
-              <span class="popup-value">${formatBudget(signalement.budget)}</span>
-            </div>
-            <div class="popup-info-item">
-              <span class="popup-label">🏢 Entreprise</span>
-              <span class="popup-value">${signalement.entreprise || 'Non assignée'}</span>
-            </div>
-          </div>
-          ${signalement.photos && signalement.photos.length > 0 ? `
-            <div class="popup-photos">
-              <a href="#" class="popup-photos-link" onclick="window.openPhotoModal(${signalement.id}); return false;">
-                📷 Voir les photos (${signalement.photos.length})
-              </a>
-            </div>
-          ` : ''}
-          <div class="popup-dates">
-            ${signalement.date_nouveau ? `<div class="date-item"><span class="date-label">🔴 Signalé:</span> ${formatDate(signalement.date_nouveau)}</div>` : ''}
-            ${signalement.date_en_cours ? `<div class="date-item"><span class="date-label">🟡 Démarré:</span> ${formatDate(signalement.date_en_cours)}</div>` : ''}
-            ${signalement.date_termine ? `<div class="date-item"><span class="date-label">🟢 Terminé:</span> ${formatDate(signalement.date_termine)}</div>` : ''}
-          </div>
-        </div>
-      `
-
-      const popup = new window.maplibregl.Popup({
-        offset: [0, -40],
-        closeButton: true,
-        closeOnClick: false,
-        maxWidth: '320px'
-      }).setHTML(popupHTML)
-
-      // Afficher popup au survol
+      // Hover — show popup, scale icon from bottom anchor
       el.addEventListener('mouseenter', () => {
-        if (popupRef.current) {
-          popupRef.current.remove()
-        }
-        popup.setLngLat([signalement.longitude, signalement.latitude]).addTo(map.current)
+        img.style.transform = 'scale(1.25)'
+        if (hoverTimeoutRef.current) { clearTimeout(hoverTimeoutRef.current); hoverTimeoutRef.current = null }
+        if (popupRef.current) popupRef.current.remove()
+
+        const popup = new window.maplibregl.Popup({
+          offset: [0, -48],
+          closeButton: false,
+          closeOnClick: false,
+          maxWidth: '320px',
+          anchor: 'bottom'
+        })
+          .setLngLat(lngLat)
+          .setHTML(buildPopupHTML(sig))
+          .addTo(mapRef.current)
+
         popupRef.current = popup
+
+        // Keep popup alive when hovering over it
+        const popupEl = popup.getElement()
+        if (popupEl) {
+          popupEl.addEventListener('mouseenter', () => {
+            if (hoverTimeoutRef.current) { clearTimeout(hoverTimeoutRef.current); hoverTimeoutRef.current = null }
+          })
+          popupEl.addEventListener('mouseleave', () => {
+            hoverTimeoutRef.current = setTimeout(() => {
+              if (popupRef.current) { popupRef.current.remove(); popupRef.current = null }
+            }, 200)
+          })
+        }
+
+        // Bind photo link
+        setTimeout(() => {
+          const photoLink = document.querySelector(`.popup-photos-link[data-sig-id="${sig.id}"] a`)
+          if (photoLink) {
+            photoLink.addEventListener('click', (e) => {
+              e.preventDefault()
+              setSelectedSig(sig)
+              setShowPhotos(true)
+              if (popupRef.current) { popupRef.current.remove(); popupRef.current = null }
+            })
+          }
+        }, 50)
+      })
+
+      el.addEventListener('mouseleave', () => {
+        img.style.transform = 'scale(1)'
+        hoverTimeoutRef.current = setTimeout(() => {
+          if (popupRef.current) {
+            const popupEl = popupRef.current.getElement()
+            if (popupEl && !popupEl.matches(':hover')) {
+              popupRef.current.remove()
+              popupRef.current = null
+            }
+          }
+        }, 300)
+      })
+
+      el.addEventListener('click', () => {
+        if (popupRef.current) { popupRef.current.remove(); popupRef.current = null }
+        setSelectedSig(sig)
+        setShowPhotos(false)
       })
 
       const marker = new window.maplibregl.Marker({ element: el, anchor: 'bottom' })
-        .setLngLat([signalement.longitude, signalement.latitude])
-        .addTo(map.current)
-      
+        .setLngLat(lngLat)
+        .addTo(mapRef.current)
       markersRef.current.push(marker)
     })
+  }, [signalements, filter, buildPopupHTML])
 
-  }, [signalements, filterStatut, mapLoaded])
+  const statuts = [
+    { key: 'tous', label: 'Tous', icon: 'fa-layer-group', color: 'var(--gray-600)' },
+    { key: 'NOUVEAU', label: 'Nouveaux', icon: 'fa-circle-exclamation', color: 'var(--danger)' },
+    { key: 'EN_COURS', label: 'En cours', icon: 'fa-hammer', color: 'var(--warning)' },
+    { key: 'TERMINE', label: 'Terminés', icon: 'fa-circle-check', color: 'var(--success)' },
+  ]
 
   return (
-    <div className="map-view">
-      {/* Header */}
-      <header className="header">
-        <div className="header-left">
-          <h1>🛣️ Signalement Routier - Antananarivo</h1>
-          <ConnectionIndicator />
-          {user ? (
-            <span className={`badge ${isManager ? 'manager' : 'user'}`}>
-              {isManager ? '👔 Manager' : '👤 Utilisateur'}
-            </span>
-          ) : (
-            <span className="badge visitor">🌍 Mode Visiteur</span>
-          )}
+    <div className="map-page">
+      <div className="map-toolbar">
+        <div className="map-filters">
+          {statuts.map(s => (
+            <button key={s.key} className={`filter-chip ${filter === s.key ? 'active' : ''}`} onClick={() => setFilter(s.key)}>
+              <i className={`fa-solid ${s.icon}`} style={{color: filter === s.key ? '#fff' : s.color}}></i>
+              {s.label}
+              <span className="chip-count">{s.key === 'tous' ? signalements.length : signalements.filter(x => x.statut === s.key).length}</span>
+            </button>
+          ))}
         </div>
-        <div className="header-right">
-          <select 
-            value={filterStatut} 
-            onChange={(e) => setFilterStatut(e.target.value)}
-            className="filter-select"
-          >
-            <option value="TOUS">Tous les statuts</option>
-            <option value="NOUVEAU">🔴 Nouveau</option>
-            <option value="EN_COURS">🟡 En cours</option>
-            <option value="TERMINE">🟢 Terminé</option>
-          </select>
-          
-          {user ? (
-            <>
-              <span className="user-name">👤 {user.name || user.email}</span>
-              {isManager && (
-                <Link to="/dashboard" className="btn-manager">
-                  📊 Dashboard
-                </Link>
-              )}
-              <Link to="/profile" className="btn-profile">
-                ⚙️ Profil
-              </Link>
-              <button onClick={handleLogout} className="btn-logout">
-                🚪 Déconnexion
-              </button>
-            </>
-          ) : (
-            <Link to="/login" className="btn-login">
-              🔐 Se connecter
-            </Link>
-          )}
-        </div>
-      </header>
-
-      {/* Container principal */}
-      <div className="main-container">
-        {/* Panneau des statistiques */}
-        <StatsPanel stats={stats} loading={loading} formatBudget={formatBudget} />
-
-        {/* Carte */}
-        <div className="map-container">
-          <div ref={mapContainer} className="map" />
-          
-          {/* Légende */}
-          <Legend />
-        </div>
+        <div className="map-info"><i className="fa-solid fa-map-pin"></i> Antananarivo</div>
       </div>
 
-      {/* Loading overlay */}
-      {loading && (
-        <div className="loading-overlay">
-          <div className="spinner"></div>
-          <p>Chargement des données...</p>
+      <div className="map-container" ref={mapContainerRef} />
+
+      {stats && (
+        <div className="map-recap">
+          <div className="recap-item"><i className="fa-solid fa-map-pin"></i><span><strong>{stats.total}</strong> points</span></div>
+          <div className="recap-divider"></div>
+          <div className="recap-item"><i className="fa-solid fa-ruler-combined"></i><span><strong>{Number(stats.total_surface).toLocaleString('fr-FR')}</strong> m²</span></div>
+          <div className="recap-divider"></div>
+          <div className="recap-item"><i className="fa-solid fa-chart-line"></i><span><strong>{stats.avancement}%</strong> avancement</span></div>
+          <div className="recap-divider"></div>
+          <div className="recap-item"><i className="fa-solid fa-coins"></i><span><strong>{Number(stats.total_budget).toLocaleString('fr-FR')}</strong> Ar</span></div>
         </div>
       )}
 
-      {/* Modal des photos */}
-      <PhotoModal 
-        photos={selectedPhotos}
-        isOpen={photoModalOpen}
-        onClose={() => setPhotoModalOpen(false)}
-        title={selectedPhotoTitle}
-      />
+      {selectedSig && !showPhotos && (
+        <div className="detail-panel">
+          <div className="detail-header">
+            <h3>{selectedSig.titre || 'Signalement'}</h3>
+            <button className="btn btn-ghost btn-icon" onClick={() => setSelectedSig(null)}><i className="fa-solid fa-xmark"></i></button>
+          </div>
+          <div className="detail-body">
+            <div className="detail-row"><i className="fa-solid fa-info-circle"></i><span>{selectedSig.description || 'Aucune description'}</span></div>
+            <div className="detail-row"><i className="fa-solid fa-signal"></i><span>Statut : <span className={`badge badge-${selectedSig.statut === 'TERMINE' ? 'success' : selectedSig.statut === 'EN_COURS' ? 'warning' : 'danger'}`}>{statutLabel(selectedSig.statut)}</span></span></div>
+            <div className="detail-row"><i className="fa-solid fa-layer-group"></i><span>Niveau : <strong>{selectedSig.niveau || 1}</strong>/10</span></div>
+            <div className="detail-row"><i className="fa-solid fa-ruler-combined"></i><span>Surface : <strong>{selectedSig.surface_m2 ? selectedSig.surface_m2 + ' m²' : '—'}</strong></span></div>
+            <div className="detail-row"><i className="fa-solid fa-coins"></i><span>Budget : <strong>{selectedSig.budget ? Number(selectedSig.budget).toLocaleString('fr-FR') + ' Ar' : '—'}</strong></span></div>
+            {selectedSig.utilisateur_nom && <div className="detail-row"><i className="fa-regular fa-user"></i><span>Signalé par : {selectedSig.utilisateur_nom}</span></div>}
+            {selectedSig.entreprise && <div className="detail-row"><i className="fa-solid fa-building"></i><span>Entreprise : {selectedSig.entreprise}</span></div>}
+            <div className="detail-row"><i className="fa-regular fa-calendar"></i><span>Créé le : {new Date(selectedSig.date_creation).toLocaleDateString('fr-FR')}</span></div>
+            {selectedSig.date_en_cours && <div className="detail-row"><i className="fa-solid fa-play"></i><span>En cours le : {new Date(selectedSig.date_en_cours).toLocaleDateString('fr-FR')}</span></div>}
+            {selectedSig.date_termine && <div className="detail-row"><i className="fa-solid fa-check"></i><span>Terminé le : {new Date(selectedSig.date_termine).toLocaleDateString('fr-FR')}</span></div>}
+            {selectedSig.photos && selectedSig.photos.length > 0 && selectedSig.photos[0]?.id && (
+              <div className="detail-row" style={{marginTop:8}}>
+                <i className="fa-solid fa-images"></i>
+                <a href="#" onClick={(e) => { e.preventDefault(); setShowPhotos(true) }} style={{color:'var(--primary)', fontWeight:600}}>Voir les photos ({selectedSig.photos.length})</a>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {selectedSig && showPhotos && (
+        <div className="modal-overlay" onClick={() => setShowPhotos(false)}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{maxWidth:700, width:'95%'}}>
+            <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16}}>
+              <h2><i className="fa-solid fa-images" style={{marginRight:8}}></i> Photos — {selectedSig.titre}</h2>
+              <button className="btn btn-ghost btn-icon" onClick={() => setShowPhotos(false)}><i className="fa-solid fa-xmark"></i></button>
+            </div>
+            {selectedSig.photos && selectedSig.photos.length > 0 && selectedSig.photos[0]?.id ? (
+              <div className="photo-modal-grid">
+                {selectedSig.photos.map((p, i) => (
+                  <div key={p.id || i} className="photo-modal-item">
+                    <img src={getPhotoSrc(p)} alt={p.filename || `Photo ${i+1}`} />
+                    <div className="photo-modal-name">{p.filename || `Photo ${i+1}`}</div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p style={{textAlign:'center', color:'var(--gray-400)', padding:40}}>Aucune photo disponible</p>
+            )}
+            <div style={{display:'flex', justifyContent:'space-between', marginTop:16}}>
+              <button className="btn btn-secondary" onClick={() => setShowPhotos(false)}><i className="fa-solid fa-arrow-left"></i> Retour</button>
+              <button className="btn btn-secondary" onClick={() => { setShowPhotos(false); setSelectedSig(null) }}>Fermer</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {loading && <div className="map-loading"><div className="spinner"></div></div>}
     </div>
   )
 }

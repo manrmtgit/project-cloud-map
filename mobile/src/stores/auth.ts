@@ -47,7 +47,7 @@ export const useAuthStore = defineStore('auth', {
         this.isBlocked = false;
 
         // Initialiser les notifications pour cet utilisateur
-        notificationService.requestPermission();
+        await notificationService.requestPermission();
         notificationService.initNotifications(response.user.id);
 
         return true;
@@ -142,8 +142,9 @@ export const useAuthStore = defineStore('auth', {
 
       // Si l'utilisateur est connecté, initialiser les notifications
       if (this.isAuthenticated && this.user) {
-        notificationService.requestPermission();
-        notificationService.initNotifications(this.user.id);
+        notificationService.requestPermission().then(() => {
+          if (this.user) notificationService.initNotifications(this.user.id);
+        });
       }
     }
   }

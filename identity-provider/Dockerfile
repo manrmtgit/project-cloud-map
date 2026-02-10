@@ -13,6 +13,9 @@ RUN npm install
 # Copier le reste du code source
 COPY . .
 
+# Créer le dossier config s'il n'existe pas
+RUN mkdir -p config
+
 # Exposer le port de l'application
 EXPOSE 3000
 

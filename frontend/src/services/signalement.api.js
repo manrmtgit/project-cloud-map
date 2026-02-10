@@ -1,7 +1,13 @@
-import api from './api'
 import axios from 'axios'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
+
+const api = axios.create({
+  baseURL: API_URL,
+  headers: {
+    'Content-Type': 'application/json'
+  }
+})
 
 // Services pour les signalements
 export const signalementService = {
@@ -67,16 +73,10 @@ export const signalementService = {
   uploadPhotos: async (signalementId, files) => {
     const formData = new FormData()
     files.forEach(file => formData.append('photos', file))
-    const token = localStorage.getItem('token')
     const response = await axios.post(
       `${API_URL}/api/signalements/${signalementId}/photos`,
       formData,
-      { 
-        headers: { 
-          'Content-Type': 'multipart/form-data',
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-        } 
-      }
+      { headers: { 'Content-Type': 'multipart/form-data' } }
     )
     return response.data
   },
@@ -103,6 +103,31 @@ export const signalementService = {
   // Marquer toutes les notifications comme lues
   markAllNotificationsRead: async (userId) => {
     const response = await api.put(`/api/signalements/notifications/${userId}/read-all`)
+    return response.data
+  },
+
+  // === FIREBASE SYNC ===
+  // Envoyer les données vers Firebase
+  pushToFirebase: async () => {
+    const response = await api.post('/api/signalements/sync/push')
+    return response.data
+  },
+
+  // Récupérer les données depuis Firebase
+  pullFromFirebase: async () => {
+    const response = await api.post('/api/signalements/sync/pull')
+    return response.data
+  },
+
+  // Synchronisation bidirectionnelle
+  syncBidirectional: async () => {
+    const response = await api.post('/api/signalements/sync/bidirectional')
+    return response.data
+  },
+
+  // Obtenir le statut de synchronisation
+  getSyncStatus: async () => {
+    const response = await api.get('/api/signalements/sync/status')
     return response.data
   }
 }

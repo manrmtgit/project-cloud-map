@@ -4,9 +4,9 @@ services:
     image: postgres:15-alpine
     container_name: identity-provider-db
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres123
-      POSTGRES_DB: identity_db
+      POSTGRES_USER: cloudmap
+      POSTGRES_PASSWORD: password123
+      POSTGRES_DB: cloudmap_db
     ports:
       - "5432:5432"
     volumes:
@@ -25,30 +25,19 @@ services:
     environment:
       - NODE_ENV=development
       - PORT=3000
-      - JWT_SECRET=votre_secret_jwt_super_securise_2024
+      - JWT_SECRET=73eec47c44d248d5efc6aa4fe836f95b3a504c1d
       - JWT_EXPIRES_IN=24h
       - DB_HOST=postgres
       - DB_PORT=5432
-      - DB_USER=postgres
-      - DB_PASSWORD=postgres123
-      - DB_NAME=identity_db
-      - MAX_LOGIN_ATTEMPTS=3
-      - SESSION_DURATION=24h
+      - DB_USER=cloudmap
+      - DB_PASSWORD=password123
+      - DB_NAME=cloudmap_db
+      - FIREBASE_PROJECT_ID=project-cloud-map
+      - FIREBASE_DATABASE_URL=https://project-cloud-map-default-rtdb.firebaseio.com
     volumes:
       - ./src:/app/src
     depends_on:
       - postgres
-    restart: unless-stopped
-
-  # Serveur de carte offline (tileserver-gl)
-  tileserver:
-    image: maptiler/tileserver-gl:latest
-    container_name: tileserver-gl
-    ports:
-      - "8080:8080"
-    volumes:
-      - ../carte:/data
-    command: --verbose --public_url http://localhost:8080
     restart: unless-stopped
 
 volumes:

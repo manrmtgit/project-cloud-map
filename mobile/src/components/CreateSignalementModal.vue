@@ -25,6 +25,9 @@
 
     <ion-content class="ion-padding">
       <!-- Localisation -->
+      <div class="form-group">
+        <ion-label>Localisation</ion-label>
+      </div>
       <div class="location-preview" v-if="location">
         <ion-icon :icon="locationOutline" style="color: #6B4FFF; font-size: 20px;"></ion-icon>
         <span>{{ location.lat.toFixed(6) }}, {{ location.lng.toFixed(6) }}</span>
@@ -39,23 +42,6 @@
             :class="{ 'input-error': errors.titre }"
         ></ion-input>
         <span v-if="errors.titre" class="error-text">{{ errors.titre }}</span>
-      </div>
-
-      <div class="form-group">
-        <ion-label>Type de problème *</ion-label>
-        <ion-select
-            v-model="form.type"
-            placeholder="Sélectionner un type"
-            interface="action-sheet"
-        >
-          <ion-select-option
-              v-for="type in SIGNALEMENT_TYPES"
-              :key="type.value"
-              :value="type.value"
-          >
-            {{ type.icon }} {{ type.label }}
-          </ion-select-option>
-        </ion-select>
       </div>
 
       <div class="form-group">

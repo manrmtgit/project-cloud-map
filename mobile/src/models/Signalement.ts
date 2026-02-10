@@ -35,7 +35,12 @@ export interface Signalement {
   entreprise?: string;
   date_creation: string;
   date_modification?: string;
+  date_nouveau?: string;
+  date_en_cours?: string;
+  date_termine?: string;
+  avancement?: number;
   user_id: string;
+  utilisateur_id?: string | number;  // Alias from backend sync
   user_email?: string;
   photo_url?: string;
   photos?: string[]; // Support pour plusieurs photos

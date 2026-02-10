@@ -1,8 +1,8 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'mg.cloudmap.mobile',
-  appName: 'CloudMap',
+  appId: 'mg.mapmanager.mobile',
+  appName: 'Map Manager',
   webDir: 'dist',
   server: {
     androidScheme: 'https'

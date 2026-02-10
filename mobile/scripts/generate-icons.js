@@ -44,7 +44,7 @@ const sizes = {
 
 const inputSvg = path.join(__dirname, '../public/icon.svg');
 const inputPng = path.join(__dirname, '../public/icon-source.png');
-const outputDir = path.join(__dirname, '../resources/icons');
+const outputDir = path.join(__dirname, '../assets/icons');
 
 // Android mipmap directories for Capacitor
 const androidResDir = path.join(__dirname, '../android/app/src/main/res');
@@ -131,7 +131,7 @@ async function generateIcons() {
     console.error('✗ Failed to generate icon-512.png:', error.message);
   }
 
-  console.log('\nDone! Icons generated in resources/icons/');
+  console.log('\nDone! Icons generated in assets/icons/');
 }
 
 generateIcons().catch(console.error);

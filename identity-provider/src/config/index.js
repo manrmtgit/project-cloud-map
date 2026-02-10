@@ -6,7 +6,5 @@ module.exports = {
     DB_PORT: process.env.DB_PORT || 5432,
     DB_USER: process.env.DB_USER || 'postgres',
     DB_PASSWORD: process.env.DB_PASSWORD || 'postgres123',
-    DB_NAME: process.env.DB_NAME || 'identity_db',
-    MAX_LOGIN_ATTEMPTS: parseInt(process.env.MAX_LOGIN_ATTEMPTS) || 3,
-    SESSION_DURATION: process.env.SESSION_DURATION || '24h'
+    DB_NAME: process.env.DB_NAME || 'identity_db'
 };

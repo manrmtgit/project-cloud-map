@@ -3,7 +3,7 @@ const router = express.Router();
 const multer = require('multer');
 const path = require('path');
 const signalementController = require('../controllers/signalement.controller');
-const authMiddleware = require('../middlewares/auth.middleware');
+const firebaseSyncController = require('../controllers/firebaseSync.controller');
 
 // Configuration Multer pour upload de photos
 const storage = multer.diskStorage({
@@ -30,7 +30,7 @@ const upload = multer({
     }
 });
 
-// Routes publiques (pour les visiteurs - lecture seule)
+// Routes publiques (pour les visiteurs)
 router.get('/', signalementController.getAllSignalements);
 router.get('/stats', signalementController.getStats);
 router.get('/stats/detailed', signalementController.getDetailedStats);
@@ -38,18 +38,24 @@ router.get('/suggest-coordinates', signalementController.suggestCoordinates);
 router.get('/:id', signalementController.getSignalementById);
 router.get('/:id/photos', signalementController.getPhotos);
 
-// Routes protégées (authentification requise - écriture)
-router.post('/', authMiddleware, signalementController.createSignalement);
-router.put('/:id', authMiddleware, signalementController.updateSignalement);
-router.delete('/:id', authMiddleware, signalementController.deleteSignalement);
+// Routes pour création/modification
+router.post('/', signalementController.createSignalement);
+router.put('/:id', signalementController.updateSignalement);
+router.delete('/:id', signalementController.deleteSignalement);
 
-// Routes pour les photos (protégées)
-router.post('/:id/photos', authMiddleware, upload.array('photos', 10), signalementController.addPhotos);
-router.delete('/photos/:photoId', authMiddleware, signalementController.deletePhoto);
+// Routes pour les photos
+router.post('/:id/photos', upload.array('photos', 10), signalementController.addPhotos);
+router.delete('/photos/:photoId', signalementController.deletePhoto);
 
 // Routes pour les notifications
 router.get('/notifications/:userId', signalementController.getNotifications);
 router.put('/notifications/:notifId/read', signalementController.markNotificationRead);
 router.put('/notifications/:userId/read-all', signalementController.markAllNotificationsRead);
+
+// Routes Firebase Sync
+router.post('/sync/push', firebaseSyncController.pushToFirebase);
+router.post('/sync/pull', firebaseSyncController.pullFromFirebase);
+router.post('/sync/bidirectional', firebaseSyncController.syncBidirectional);
+router.get('/sync/status', firebaseSyncController.getSyncStatus);
 
 module.exports = router;

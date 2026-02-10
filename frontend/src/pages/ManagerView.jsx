@@ -1,852 +1,642 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
-import { signalementService } from '../services/signalement.api';
-import { useAuth } from '../context/AuthContext';
-import './ManagerView.css';
+import React, { useState, useEffect, useRef } from 'react'
+import { useAuth } from '../context/AuthContext'
+import { signalementService, userService } from '../services/api'
+import './ManagerView.css'
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
+
+/* ── Helper: get photo src (handles data-url and raw base64) ── */
+const getPhotoSrc = (photo) => {
+  if (photo.base64_data) {
+    if (photo.base64_data.startsWith('data:')) return photo.base64_data
+    return `data:${photo.mimetype || 'image/jpeg'};base64,${photo.base64_data}`
+  }
+  return `${API_URL}/uploads/${photo.filename}`
+}
+
+/* ── Helper: compress image file to base64 via canvas ── */
+const compressImage = (file, maxWidth = 1024, quality = 0.7) => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const img = new Image()
+      img.onload = () => {
+        const canvas = document.createElement('canvas')
+        let w = img.width, h = img.height
+        if (w > maxWidth) { h = (h * maxWidth) / w; w = maxWidth }
+        canvas.width = w
+        canvas.height = h
+        const ctx = canvas.getContext('2d')
+        ctx.drawImage(img, 0, 0, w, h)
+        const base64 = canvas.toDataURL('image/jpeg', quality)
+        resolve({
+          base64: base64,  // full data URL: data:image/jpeg;base64,...
+          filename: file.name,
+          mimetype: 'image/jpeg',
+          size: Math.round(base64.length * 0.75) // approximate size in bytes
+        })
+      }
+      img.onerror = reject
+      img.src = e.target.result
+    }
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
+}
 
 const ManagerView = () => {
-  const { user, logout } = useAuth();
-  const [signalements, setSignalements] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedSignalement, setSelectedSignalement] = useState(null);
-  const [filter, setFilter] = useState('all');
-  const [showMyOnly, setShowMyOnly] = useState(false);
-  const [syncing, setSyncing] = useState(false);
-  const [editMode, setEditMode] = useState(false);
-  const [editData, setEditData] = useState({});
-  
-  // État pour les photos
-  const [selectedPhotos, setSelectedPhotos] = useState([]);
-  const [uploadingPhotos, setUploadingPhotos] = useState(false);
-  const [showPhotoModal, setShowPhotoModal] = useState(false);
-  const fileInputRef = useRef(null);
-  
-  // État pour les statistiques détaillées
-  const [detailedStats, setDetailedStats] = useState(null);
-  const [showStatsPanel, setShowStatsPanel] = useState(false);
-  
-  // État pour les notifications
-  const [notifications, setNotifications] = useState([]);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [showNotifications, setShowNotifications] = useState(false);
-  
-  // État pour le formulaire d'ajout
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [quartiers, setQuartiers] = useState([]);
-  const [addFormData, setAddFormData] = useState({
-    titre: '',
-    description: '',
-    latitude: '',
-    longitude: '',
-    surface_m2: '',
-    budget: '',
-    entreprise: ''
-  });
-  const [addPhotos, setAddPhotos] = useState([]);
-  const [suggesting, setSuggesting] = useState(false);
+  const { user } = useAuth()
+  const [signalements, setSignalements] = useState([])
+  const [typesRep, setTypesRep] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [syncing, setSyncing] = useState(false)
+  const [syncMessage, setSyncMessage] = useState(null)
+  const [tab, setTab] = useState('liste') // liste | ajout
+  const [selected, setSelected] = useState(null)
+  const [formData, setFormData] = useState({
+    titre: '', description: '', latitude: '', longitude: '',
+    statut: 'NOUVEAU', niveau: 1, surface_m2: '', entreprise: ''
+  })
+  const [filterStatut, setFilterStatut] = useState('tous')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [currentPage, setCurrentPage] = useState(1)
+  const ROWS_PER_PAGE = 5
 
-  const statusOptions = ['NOUVEAU', 'EN_COURS', 'TERMINE'];
+  // Photo upload state
+  const [photoFiles, setPhotoFiles] = useState([])
+  const [photoPreviews, setPhotoPreviews] = useState([])
+  const [uploadingPhotos, setUploadingPhotos] = useState(false)
+  const fileInputRef = useRef(null)
+  const detailFileInputRef = useRef(null)
 
-  useEffect(() => {
-    loadSignalements();
-    loadDetailedStats();
-    if (user?.id) {
-      loadNotifications();
-    }
-  }, [user]);
+  // Photo viewer
+  const [viewingPhoto, setViewingPhoto] = useState(null)
 
-  const loadSignalements = async () => {
+  // Editing mode
+  const [editingId, setEditingId] = useState(null)
+
+  useEffect(() => { loadData() }, [])
+
+  const loadData = async () => {
+    setLoading(true)
     try {
-      setLoading(true);
-      const userId = showMyOnly && user?.id ? user.id : null;
-      const data = await signalementService.getAll(null, userId);
-      setSignalements(data);
-    } catch (error) {
-      console.error('Erreur chargement:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadDetailedStats = async () => {
-    try {
-      const stats = await signalementService.getDetailedStats();
-      setDetailedStats(stats);
-    } catch (error) {
-      console.error('Erreur chargement stats:', error);
-    }
-  };
-
-  const loadNotifications = async () => {
-    try {
-      const data = await signalementService.getNotifications(user.id);
-      setNotifications(data.notifications || []);
-      setUnreadCount(data.unread_count || 0);
-    } catch (error) {
-      console.error('Erreur chargement notifications:', error);
-    }
-  };
-
-  const handleMarkAllRead = async () => {
-    try {
-      await signalementService.markAllNotificationsRead(user.id);
-      setUnreadCount(0);
-      setNotifications(notifications.map(n => ({ ...n, lu: true })));
-    } catch (error) {
-      console.error('Erreur:', error);
-    }
-  };
-
-  const handleSync = async () => {
-    setSyncing(true);
-    try {
-      await loadSignalements();
-      await loadDetailedStats();
-      if (user?.id) await loadNotifications();
-      alert('Synchronisation réussie !');
-    } catch (error) {
-      alert('Erreur lors de la synchronisation');
-    } finally {
-      setSyncing(false);
-    }
-  };
-
-  const handleEdit = (signalement) => {
-    setSelectedSignalement(signalement);
-    setEditData({
-      titre: signalement.titre,
-      description: signalement.description,
-      statut: signalement.statut,
-      surface_m2: signalement.surface_m2 || '',
-      budget: signalement.budget || '',
-      entreprise: signalement.entreprise || ''
-    });
-    setEditMode(true);
-  };
-
-  const handleSave = async () => {
-    try {
-      await signalementService.update(selectedSignalement.id, {
-        ...editData,
-        user_id_modifier: user?.id
-      });
-      await loadSignalements();
-      setEditMode(false);
-      setSelectedSignalement(null);
-      alert('Signalement mis à jour !');
-    } catch (error) {
-      console.error('Erreur mise à jour:', error);
-      alert('Erreur lors de la mise à jour');
-    }
-  };
-
-  // Upload de photos
-  const handlePhotoSelect = (e) => {
-    const files = Array.from(e.target.files);
-    setSelectedPhotos(files);
-  };
-
-  const handlePhotoUpload = async () => {
-    if (!selectedSignalement || selectedPhotos.length === 0) return;
-    
-    setUploadingPhotos(true);
-    try {
-      await signalementService.uploadPhotos(selectedSignalement.id, selectedPhotos);
-      setSelectedPhotos([]);
-      await loadSignalements();
-      // Recharger le signalement sélectionné
-      const updated = await signalementService.getById(selectedSignalement.id);
-      setSelectedSignalement(updated);
-      alert('Photos ajoutées avec succès !');
-    } catch (error) {
-      console.error('Erreur upload:', error);
-      alert('Erreur lors de l\'upload des photos');
-    } finally {
-      setUploadingPhotos(false);
-    }
-  };
-
-  const handleDeletePhoto = async (photoId) => {
-    if (!window.confirm('Supprimer cette photo ?')) return;
-    try {
-      await signalementService.deletePhoto(photoId);
-      const updated = await signalementService.getById(selectedSignalement.id);
-      setSelectedSignalement(updated);
-    } catch (error) {
-      console.error('Erreur suppression photo:', error);
-    }
-  };
-
-  const handleDelete = async (id) => {
-    if (window.confirm('Êtes-vous sûr de vouloir supprimer ce signalement ?')) {
-      try {
-        await signalementService.delete(id);
-        await loadSignalements();
-        setSelectedSignalement(null);
-        alert('Signalement supprimé !');
-      } catch (error) {
-        console.error('Erreur suppression:', error);
-        alert('Erreur lors de la suppression');
-      }
-    }
-  };
-
-  // Calcul de l'avancement
-  const getAvancement = (statut) => {
-    switch (statut) {
-      case 'NOUVEAU': return 0;
-      case 'EN_COURS': return 50;
-      case 'TERMINE': return 100;
-      default: return 0;
-    }
-  };
-
-  // Gestion du formulaire d'ajout
-  const handleSuggestCoordinates = async () => {
-    setSuggesting(true);
-    try {
-      const data = await signalementService.suggestCoordinates();
-      if (data.success) {
-        setAddFormData(prev => ({
-          ...prev,
-          latitude: data.suggestion.latitude,
-          longitude: data.suggestion.longitude,
-          titre: prev.titre || `Signalement - ${data.suggestion.quartier}`
-        }));
-        setQuartiers(data.quartiers || []);
-      }
-    } catch (error) {
-      console.error('Erreur suggestion:', error);
-      alert('Erreur lors de la suggestion de coordonnées');
-    } finally {
-      setSuggesting(false);
-    }
-  };
-
-  const handleSelectQuartier = (quartier) => {
-    // Ajouter une petite variation aléatoire
-    const latOffset = (Math.random() - 0.5) * 0.003;
-    const lngOffset = (Math.random() - 0.5) * 0.003;
-    setAddFormData(prev => ({
-      ...prev,
-      latitude: (quartier.latitude + latOffset).toFixed(6),
-      longitude: (quartier.longitude + lngOffset).toFixed(6),
-      titre: prev.titre || `Signalement - ${quartier.nom}`
-    }));
-  };
-
-  const handleAddSubmit = async (e) => {
-    e.preventDefault();
-    if (!addFormData.titre || !addFormData.latitude || !addFormData.longitude) {
-      alert('Veuillez remplir le titre et les coordonnées');
-      return;
-    }
-    try {
-      const newSignalement = await signalementService.create({
-        ...addFormData,
-        latitude: parseFloat(addFormData.latitude),
-        longitude: parseFloat(addFormData.longitude),
-        surface_m2: addFormData.surface_m2 ? parseFloat(addFormData.surface_m2) : null,
-        budget: addFormData.budget ? parseFloat(addFormData.budget) : null,
-        user_id: user?.id
-      });
-      
-      // Upload des photos si présentes
-      if (addPhotos.length > 0 && newSignalement?.id) {
-        await signalementService.uploadPhotos(newSignalement.id, addPhotos);
-      }
-      
-      await loadSignalements();
-      setShowAddForm(false);
-      setAddFormData({
-        titre: '',
-        description: '',
-        latitude: '',
-        longitude: '',
-        surface_m2: '',
-        budget: '',
-        entreprise: ''
-      });
-      setAddPhotos([]);
-      setQuartiers([]);
-      alert('Signalement créé avec succès !');
-    } catch (error) {
-      console.error('Erreur création:', error);
-      alert('Erreur lors de la création du signalement');
-    }
-  };
-
-  const getStatusBadge = (statut) => {
-    const classes = {
-      'NOUVEAU': 'status-nouveau',
-      'EN_COURS': 'status-en-cours',
-      'TERMINE': 'status-termine'
-    };
-    const labels = {
-      'NOUVEAU': 'Nouveau',
-      'EN_COURS': 'En cours',
-      'TERMINE': 'Terminé'
-    };
-    return <span className={`status-badge ${classes[statut] || ''}`}>{labels[statut] || statut}</span>;
-  };
-
-  const formatDate = (dateStr) => {
-    return new Date(dateStr).toLocaleDateString('fr-FR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
-  const filteredSignalements = signalements.filter(s => {
-    if (filter === 'all') return true;
-    return s.statut === filter;
-  });
-
-  if (loading) {
-    return (
-      <div className="loading-screen">
-        <div className="spinner"></div>
-        <p>Chargement des données...</p>
-      </div>
-    );
+      const [sigData, typesData] = await Promise.all([
+        signalementService.getAll(),
+        userService.getTypesReparation().catch(() => ({ types: [] }))
+      ])
+      setSignalements(sigData.signalements || sigData || [])
+      setTypesRep(typesData.types || [])
+    } catch (e) { console.error(e) }
+    finally { setLoading(false) }
   }
 
+  // ── Create or Update signalement ──
+  const handleCreate = async (e) => {
+    e.preventDefault()
+    try {
+      if (editingId) {
+        // Mode édition: mettre à jour (toutes les infos)
+        await signalementService.update(editingId, formData)
+        if (photoFiles.length > 0) {
+          await uploadPhotosBase64(editingId)
+        }
+      } else {
+        // Mode création
+        const result = await signalementService.create({
+          ...formData,
+          utilisateur_id: user?.id || null
+        })
+        const newId = result.signalement?.id
+        if (newId && photoFiles.length > 0) {
+          await uploadPhotosBase64(newId)
+        }
+      }
+
+      setTab('liste')
+      setFormData({ titre: '', description: '', latitude: '', longitude: '', statut: 'NOUVEAU', niveau: 1, surface_m2: '', entreprise: '' })
+      setEditingId(null)
+      setPhotoFiles([])
+      setPhotoPreviews([])
+      loadData()
+    } catch (e) { alert('Erreur: ' + (e.response?.data?.message || e.message)) }
+  }
+
+  // ── Upload photos as compressed base64 ──
+  const uploadPhotosBase64 = async (signalementId) => {
+    setUploadingPhotos(true)
+    try {
+      const compressed = await Promise.all(photoFiles.map(f => compressImage(f)))
+      // Send base64 photos to API
+      const response = await fetch(`${API_URL}/api/signalements/${signalementId}/photos`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({ photos: compressed })
+      }).then(r => r.json())
+      return response
+    } catch (e) {
+      console.error('Photo upload error:', e)
+      alert('Erreur upload photos: ' + e.message)
+    } finally {
+      setUploadingPhotos(false)
+    }
+  }
+
+  // ── Handle file selection ──
+  const handlePhotoSelect = async (files) => {
+    const fileArr = Array.from(files)
+    setPhotoFiles(prev => [...prev, ...fileArr])
+
+    // Generate previews
+    for (const file of fileArr) {
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        setPhotoPreviews(prev => [...prev, { name: file.name, src: e.target.result }])
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+
+  const removePreview = (index) => {
+    setPhotoFiles(prev => prev.filter((_, i) => i !== index))
+    setPhotoPreviews(prev => prev.filter((_, i) => i !== index))
+  }
+
+  // ── Update signalement ──
+  const handleUpdate = async (id, updates) => {
+    try {
+      await signalementService.update(id, updates)
+      loadData()
+      if (selected?.id === id) {
+        const data = await signalementService.getById(id)
+        setSelected(data.signalement || data)
+      }
+    } catch (e) { alert('Erreur: ' + (e.response?.data?.error || e.message)) }
+  }
+
+  // ── Delete ──
+  const handleDelete = async (id) => {
+    if (!confirm('Supprimer ce signalement ?')) return
+    try {
+      await signalementService.delete(id)
+      loadData()
+      if (selected?.id === id) setSelected(null)
+    } catch (e) { alert('Erreur: ' + e.message) }
+  }
+
+  // ── Upload photos to existing signalement ──
+  const handleAddPhotosToExisting = async (files) => {
+    if (!selected?.id) return
+    setUploadingPhotos(true)
+    try {
+      const compressed = await Promise.all(Array.from(files).map(f => compressImage(f)))
+      await fetch(`${API_URL}/api/signalements/${selected.id}/photos`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({ photos: compressed })
+      })
+      // Reload selected signalement
+      const data = await signalementService.getById(selected.id)
+      setSelected(data.signalement || data)
+      loadData()
+    } catch (e) {
+      alert('Erreur upload: ' + e.message)
+    } finally {
+      setUploadingPhotos(false)
+    }
+  }
+
+  // ── Sync ──
+  const handleSync = async (type) => {
+    setSyncing(true); setSyncMessage(null)
+    try {
+      let result
+      if (type === 'push') result = await signalementService.syncPush()
+      else if (type === 'pull') result = await signalementService.syncPull()
+      else result = await signalementService.syncBidirectional()
+      setSyncMessage({ type: 'success', text: result.message || 'Synchronisation effectuée' })
+      loadData()
+    } catch (e) { setSyncMessage({ type: 'error', text: e.response?.data?.message || e.message }) }
+    finally { setSyncing(false) }
+  }
+
+  const handleFormChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value })
+
+  // ── Nouveau signalement (reset edit mode) ──
+  const startNew = () => {
+    setEditingId(null)
+    setFormData({ titre: '', description: '', latitude: '', longitude: '', statut: 'NOUVEAU', niveau: 1, surface_m2: '', entreprise: '' })
+    setPhotoFiles([])
+    setPhotoPreviews([])
+    setTab('ajout')
+  }
+
+  // ── Modifier un signalement existant ──
+  const startEditing = (sig) => {
+    setFormData({
+      titre: sig.titre || '',
+      description: sig.description || '',
+      latitude: sig.latitude || '',
+      longitude: sig.longitude || '',
+      statut: sig.statut || 'NOUVEAU',
+      niveau: sig.niveau || 1,
+      surface_m2: sig.surface_m2 || '',
+      entreprise: sig.entreprise || ''
+    })
+    setEditingId(sig.id)
+    setPhotoFiles([])
+    setPhotoPreviews([])
+    setTab('ajout')
+    setSelected(null)
+  }
+
+  // Filter + search
+  const filtered = signalements.filter(s => {
+    const matchStatut = filterStatut === 'tous' || s.statut === filterStatut
+    const matchSearch = !searchQuery ||
+      s.titre?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      s.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      s.entreprise?.toLowerCase().includes(searchQuery.toLowerCase())
+    return matchStatut && matchSearch
+  })
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / ROWS_PER_PAGE))
+  const paginatedData = filtered.slice((currentPage - 1) * ROWS_PER_PAGE, currentPage * ROWS_PER_PAGE)
+
+  // Reset page quand les filtres changent
+  useEffect(() => { setCurrentPage(1) }, [filterStatut, searchQuery])
+
+  if (loading) return <div className="loading-screen"><div className="spinner"></div><p>Chargement...</p></div>
+
   return (
-    <div className="manager-view">
-      {/* Header */}
-      <header className="manager-header">
-        <div className="header-left">
-          <h1>🛠️ Interface Manager</h1>
-          <span className="badge">Manager</span>
-          {user && <span className="user-info">👤 {user.name || user.email}</span>}
-        </div>
-        <div className="header-right">
-          <button 
-            className="btn-add"
-            onClick={() => setShowAddForm(true)}
-          >
-            ➕ Nouveau signalement
+    <div className="manager-page">
+      {/* ── Toolbar ── */}
+      <div className="manager-toolbar">
+        <div className="toolbar-left">
+          <button className={`tab-btn ${tab === 'liste' ? 'active' : ''}`} onClick={() => { setTab('liste'); setSelected(null) }}>
+            <i className="fa-solid fa-list"></i> Liste
           </button>
-          <Link to="/stats" className="btn-stats-page">
-            📊 Statistiques
-          </Link>
-          <button 
-            className="btn-notifications"
-            onClick={() => setShowNotifications(!showNotifications)}
-          >
-            🔔 {unreadCount > 0 && <span className="notif-badge">{unreadCount}</span>}
-          </button>
-          <Link to="/" className="btn-back">
-            ← Retour à la carte
-          </Link>
-          <button 
-            className={`btn-sync ${syncing ? 'syncing' : ''}`} 
-            onClick={handleSync}
-            disabled={syncing}
-          >
-            {syncing ? '🔄 Synchronisation...' : '🔄 Synchroniser'}
-          </button>
-          <button className="btn-logout" onClick={logout}>
-            🚪 Déconnexion
+          <button className={`tab-btn ${tab === 'ajout' ? 'active' : ''}`} onClick={startNew}>
+            <i className="fa-solid fa-plus"></i> Nouveau
           </button>
         </div>
-      </header>
+        <div className="toolbar-right">
+          <div className="sync-buttons">
+            <button className="btn btn-sm btn-secondary" onClick={() => handleSync('push')} disabled={syncing}>
+              <i className="fa-solid fa-arrow-up"></i> Push
+            </button>
+            <button className="btn btn-sm btn-secondary" onClick={() => handleSync('pull')} disabled={syncing}>
+              <i className="fa-solid fa-arrow-down"></i> Pull
+            </button>
+            <button className="btn btn-sm btn-primary" onClick={() => handleSync('bidirectional')} disabled={syncing}>
+              <i className="fa-solid fa-arrows-rotate"></i> Sync
+            </button>
+          </div>
+        </div>
+      </div>
 
-      {/* Panel de notifications */}
-      {showNotifications && (
-        <div className="notifications-panel">
-          <div className="notif-header">
-            <h3>🔔 Notifications</h3>
-            {unreadCount > 0 && (
-              <button onClick={handleMarkAllRead} className="btn-mark-read">
-                Tout marquer comme lu
-              </button>
-            )}
-          </div>
-          <div className="notif-list">
-            {notifications.length === 0 ? (
-              <p className="no-notif">Aucune notification</p>
-            ) : (
-              notifications.map(n => (
-                <div key={n.id} className={`notif-item ${n.lu ? '' : 'unread'}`}>
-                  <span className="notif-message">{n.message}</span>
-                  <span className="notif-date">{formatDate(n.date_creation)}</span>
-                </div>
-              ))
-            )}
-          </div>
+      {syncMessage && (
+        <div className={`alert alert-${syncMessage.type === 'success' ? 'success' : 'error'} mb-4`}>
+          <i className={`fa-solid ${syncMessage.type === 'success' ? 'fa-circle-check' : 'fa-circle-exclamation'}`}></i>
+          {syncMessage.text}
+          <button style={{marginLeft:'auto', background:'none', border:'none', cursor:'pointer', color:'inherit'}} onClick={() => setSyncMessage(null)}>
+            <i className="fa-solid fa-xmark"></i>
+          </button>
         </div>
       )}
 
-      {/* Panel de statistiques détaillées */}
-      {showStatsPanel && detailedStats && (
-        <div className="stats-panel-detailed">
-          <h3>📊 Tableau de Statistiques - Délais de Traitement</h3>
-          <div className="stats-grid">
-            <div className="stat-card">
-              <h4>⏱️ Délai Moyen Total</h4>
-              <p className="stat-value">{detailedStats.delais?.moyen_total_jours || 'N/A'} jours</p>
-            </div>
-            <div className="stat-card">
-              <h4>🚀 Délai Démarrage</h4>
-              <p className="stat-value">{detailedStats.delais?.demarrage_moyen_jours || 'N/A'} jours</p>
-              <p className="stat-desc">Du signalement au démarrage</p>
-            </div>
-            <div className="stat-card">
-              <h4>🔧 Délai Travaux</h4>
-              <p className="stat-value">{detailedStats.delais?.travaux_moyen_jours || 'N/A'} jours</p>
-              <p className="stat-desc">Du démarrage à la fin</p>
-            </div>
-            <div className="stat-card">
-              <h4>📈 Min / Max</h4>
-              <p className="stat-value">{detailedStats.delais?.min_jours || 'N/A'} - {detailedStats.delais?.max_jours || 'N/A'} jours</p>
-            </div>
-          </div>
-          
-          {detailedStats.par_entreprise && (
-            <div className="stats-table">
-              <h4>🏢 Performance par Entreprise</h4>
-              <table>
-                <thead>
-                  <tr>
-                    <th>Entreprise</th>
-                    <th>Total</th>
-                    <th>Terminés</th>
-                    <th>Délai Moyen</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {detailedStats.par_entreprise.map((e, i) => (
-                    <tr key={i}>
-                      <td>{e.entreprise}</td>
-                      <td>{e.total}</td>
-                      <td>{e.termines}</td>
-                      <td>{e.delai_moyen ? `${parseFloat(e.delai_moyen).toFixed(1)} j` : 'N/A'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Modal d'ajout de signalement */}
-      {showAddForm && (
-        <div className="modal-overlay" onClick={() => setShowAddForm(false)}>
-          <div className="modal-content add-form-modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>➕ Nouveau signalement</h2>
-              <button className="btn-close" onClick={() => setShowAddForm(false)}>✕</button>
-            </div>
-            
-            <form onSubmit={handleAddSubmit} className="add-form">
-              <div className="form-group">
-                <label>Titre *</label>
-                <input
-                  type="text"
-                  value={addFormData.titre}
-                  onChange={(e) => setAddFormData({...addFormData, titre: e.target.value})}
-                  placeholder="Ex: Nid de poule rue..."
-                  required
-                />
-              </div>
-
-              <div className="form-group">
-                <label>Description</label>
-                <textarea
-                  value={addFormData.description}
-                  onChange={(e) => setAddFormData({...addFormData, description: e.target.value})}
-                  rows={3}
-                  placeholder="Décrivez le problème..."
-                />
-              </div>
-
-              <div className="coordinates-section">
-                <div className="coordinates-header">
-                  <label>📍 Coordonnées *</label>
-                  <button 
-                    type="button" 
-                    className="btn-suggest"
-                    onClick={handleSuggestCoordinates}
-                    disabled={suggesting}
-                  >
-                    {suggesting ? '⏳ Recherche...' : '🎯 Suggérer automatiquement'}
-                  </button>
-                </div>
-                
-                <div className="form-row">
-                  <div className="form-group">
-                    <label>Latitude</label>
-                    <input
-                      type="number"
-                      step="0.000001"
-                      value={addFormData.latitude}
-                      onChange={(e) => setAddFormData({...addFormData, latitude: e.target.value})}
-                      placeholder="-18.9100"
-                      required
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label>Longitude</label>
-                    <input
-                      type="number"
-                      step="0.000001"
-                      value={addFormData.longitude}
-                      onChange={(e) => setAddFormData({...addFormData, longitude: e.target.value})}
-                      placeholder="47.5250"
-                      required
-                    />
-                  </div>
-                </div>
-
-                {quartiers.length > 0 && (
-                  <div className="quartiers-grid">
-                    <label>Ou choisissez un quartier :</label>
-                    <div className="quartiers-buttons">
-                      {quartiers.map(q => (
-                        <button
-                          key={q.nom}
-                          type="button"
-                          className="btn-quartier"
-                          onClick={() => handleSelectQuartier(q)}
-                        >
-                          📍 {q.nom}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-
+      {/* ── Create Form ── */}
+      {tab === 'ajout' && (
+        <div className="card mb-6">
+          <div className="card-header"><h3><i className={`fa-solid ${editingId ? 'fa-pen' : 'fa-plus-circle'}`} style={{marginRight:8}}></i>{editingId ? `Modifier signalement #${editingId}` : 'Nouveau signalement'}</h3></div>
+          <div className="card-body">
+            <form onSubmit={handleCreate} className="create-form">
               <div className="form-row">
                 <div className="form-group">
-                  <label>Surface (m²)</label>
-                  <input
-                    type="number"
-                    value={addFormData.surface_m2}
-                    onChange={(e) => setAddFormData({...addFormData, surface_m2: e.target.value})}
-                    placeholder="Ex: 50"
-                  />
+                  <label><i className="fa-solid fa-tag"></i> Titre</label>
+                  <input name="titre" value={formData.titre} onChange={handleFormChange} placeholder="Titre du signalement" required />
                 </div>
                 <div className="form-group">
-                  <label>Budget (Ar)</label>
-                  <input
-                    type="number"
-                    value={addFormData.budget}
-                    onChange={(e) => setAddFormData({...addFormData, budget: e.target.value})}
-                    placeholder="Ex: 5000000"
-                  />
+                  <label><i className="fa-solid fa-signal"></i> Statut</label>
+                  <select name="statut" value={formData.statut} onChange={handleFormChange}>
+                    <option value="NOUVEAU">Nouveau</option>
+                    <option value="EN_COURS">En cours</option>
+                    <option value="TERMINE">Terminé</option>
+                  </select>
                 </div>
               </div>
-
               <div className="form-group">
-                <label>Entreprise assignée</label>
-                <input
-                  type="text"
-                  value={addFormData.entreprise}
-                  onChange={(e) => setAddFormData({...addFormData, entreprise: e.target.value})}
-                  placeholder="Nom de l'entreprise (optionnel)"
-                />
+                <label><i className="fa-solid fa-align-left"></i> Description</label>
+                <textarea name="description" value={formData.description} onChange={handleFormChange} rows="3" placeholder="Description détaillée..." />
+              </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label><i className="fa-solid fa-map-pin"></i> Latitude</label>
+                  <input name="latitude" type="number" step="any" value={formData.latitude} onChange={handleFormChange} placeholder="-18.91" required />
+                </div>
+                <div className="form-group">
+                  <label><i className="fa-solid fa-map-pin"></i> Longitude</label>
+                  <input name="longitude" type="number" step="any" value={formData.longitude} onChange={handleFormChange} placeholder="47.52" required />
+                </div>
+              </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label><i className="fa-solid fa-layer-group"></i> Niveau (1-10)</label>
+                  <select name="niveau" value={formData.niveau} onChange={handleFormChange}>
+                    {typesRep.length > 0
+                      ? typesRep.map(t => <option key={t.id} value={t.niveau}>{t.niveau} — {t.nom}</option>)
+                      : [1,2,3,4,5,6,7,8,9,10].map(n => <option key={n} value={n}>{n}</option>)
+                    }
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label><i className="fa-solid fa-ruler-combined"></i> Surface (m²)</label>
+                  <input name="surface_m2" type="number" step="0.01" value={formData.surface_m2} onChange={handleFormChange} placeholder="50" />
+                </div>
+              </div>
+              <div className="form-group">
+                <label><i className="fa-solid fa-building"></i> Entreprise</label>
+                <input name="entreprise" value={formData.entreprise} onChange={handleFormChange} placeholder="Nom de l'entreprise (optionnel)" />
               </div>
 
+              {/* ── Photo Upload ── */}
               <div className="form-group">
-                <label>📷 Photos (optionnel)</label>
+                <label><i className="fa-solid fa-camera"></i> Photos (compressées automatiquement)</label>
+                <div className="photo-upload-zone" onClick={() => fileInputRef.current?.click()}>
+                  <i className="fa-solid fa-cloud-arrow-up"></i>
+                  <p>Cliquez ou glissez des images ici</p>
+                  <span>JPEG, PNG, WebP — max 5 Mo chacune</span>
+                </div>
                 <input
-                  type="file"
-                  multiple
-                  accept="image/*"
-                  onChange={(e) => setAddPhotos(Array.from(e.target.files))}
+                  ref={fileInputRef} type="file" accept="image/*" multiple hidden
+                  onChange={(e) => handlePhotoSelect(e.target.files)}
                 />
-                {addPhotos.length > 0 && (
-                  <p className="photos-count">{addPhotos.length} photo(s) sélectionnée(s)</p>
+                {photoPreviews.length > 0 && (
+                  <div className="photo-previews">
+                    {photoPreviews.map((p, i) => (
+                      <div key={i} className="preview-item">
+                        <img src={p.src} alt={p.name} />
+                        <button type="button" className="preview-remove" onClick={() => removePreview(i)}>
+                          <i className="fa-solid fa-xmark"></i>
+                        </button>
+                        <div className="preview-name">{p.name}</div>
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div>
 
-              <div className="form-actions">
-                <button type="button" className="btn-cancel" onClick={() => setShowAddForm(false)}>
-                  Annuler
+              <div style={{display:'flex', gap:12}}>
+                <button type="submit" className="btn btn-primary" disabled={uploadingPhotos}>
+                  {uploadingPhotos
+                    ? <><i className="fa-solid fa-spinner fa-spin"></i> Upload en cours...</>
+                    : <><i className="fa-solid fa-floppy-disk"></i> {editingId ? 'Sauvegarder' : 'Créer'}</>}
                 </button>
-                <button type="submit" className="btn-save">
-                  ✅ Créer le signalement
-                </button>
+                <button type="button" className="btn btn-secondary" onClick={() => { setTab('liste'); setEditingId(null); setPhotoFiles([]); setPhotoPreviews([]) }}>Annuler</button>
               </div>
             </form>
           </div>
         </div>
       )}
 
-      {/* Main Content */}
-      <div className="manager-content">
-        {/* Left Panel - List */}
-        <div className="list-panel">
-          <div className="panel-header">
-            <h2>Signalements ({filteredSignalements.length})</h2>
-            <div className="filters-row">
-              <select 
-                value={filter} 
-                onChange={(e) => setFilter(e.target.value)}
-                className="filter-select"
+      {/* ── List ── */}
+      {tab === 'liste' && !selected && (
+        <div className="card">
+          <div className="card-header">
+            <h3><i className="fa-solid fa-road" style={{marginRight:8, color:'var(--primary)'}}></i>Signalements</h3>
+            <div style={{display:'flex', gap:8, alignItems:'center'}}>
+              <div className="header-search" style={{minWidth:180}}>
+                <i className="fa-solid fa-magnifying-glass"></i>
+                <input placeholder="Rechercher..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
+              </div>
+              <select
+                value={filterStatut} onChange={e => setFilterStatut(e.target.value)}
+                style={{padding:'8px 12px', borderRadius:'var(--radius-sm)', border:'1px solid var(--gray-200)', fontSize:13, color:'var(--gray-600)'}}
               >
-                <option value="all">Tous les statuts</option>
+                <option value="tous">Tous ({signalements.length})</option>
+                <option value="NOUVEAU">Nouveaux</option>
+                <option value="EN_COURS">En cours</option>
+                <option value="TERMINE">Terminés</option>
+              </select>
+            </div>
+          </div>
+          <div style={{overflowX:'auto'}}>
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Titre</th>
+                  <th>Statut</th>
+                  <th>Niveau</th>
+                  <th>Surface</th>
+                  <th>Budget</th>
+                  <th>Entreprise</th>
+                  <th>Utilisateur</th>
+                  <th>Date</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {paginatedData.map(s => (
+                  <tr key={s.id}>
+                    <td>#{s.id}</td>
+                    <td style={{fontWeight:500, maxWidth:180, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{s.titre}</td>
+                    <td>
+                      <span className={`badge badge-${s.statut === 'TERMINE' ? 'success' : s.statut === 'EN_COURS' ? 'warning' : 'danger'}`}>
+                        {s.statut === 'TERMINE' ? 'Terminé' : s.statut === 'EN_COURS' ? 'En cours' : 'Nouveau'}
+                      </span>
+                    </td>
+                    <td><span className="badge badge-info">{s.niveau || 1}/10</span></td>
+                    <td>{s.surface_m2 ? `${s.surface_m2} m²` : '—'}</td>
+                    <td>{s.budget ? `${Number(s.budget).toLocaleString('fr-FR')} Ar` : '—'}</td>
+                    <td>{s.entreprise || '—'}</td>
+                    <td>{s.utilisateur_nom || '—'}</td>
+                    <td>{s.date_creation ? new Date(s.date_creation).toLocaleDateString('fr-FR') : '—'}</td>
+                    <td>
+                      <div style={{display:'flex', gap:6}}>
+                        <button className="btn btn-sm btn-ghost" onClick={() => { setSelected(s); setTab('liste') }} title="Détails">
+                          <i className="fa-solid fa-eye"></i>
+                        </button>
+                        <button className="btn btn-sm btn-ghost" onClick={() => startEditing(s)} title="Modifier" style={{color:'var(--primary)'}}>
+                          <i className="fa-solid fa-pen"></i>
+                        </button>
+                        <button className="btn btn-sm btn-ghost" onClick={() => handleDelete(s.id)} title="Supprimer" style={{color:'var(--danger)'}}>
+                          <i className="fa-solid fa-trash"></i>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {filtered.length === 0 && (
+                  <tr><td colSpan="10" style={{textAlign:'center', padding:40, color:'var(--gray-400)'}}>
+                    <i className="fa-solid fa-road" style={{fontSize:32, marginBottom:8, display:'block'}}></i>
+                    Aucun signalement trouvé
+                  </td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+          {/* ── Pagination ── */}
+          {filtered.length > ROWS_PER_PAGE && (
+            <div className="table-pagination">
+              <button
+                className="btn btn-sm btn-secondary"
+                disabled={currentPage <= 1}
+                onClick={() => setCurrentPage(p => p - 1)}
+              >
+                <i className="fa-solid fa-chevron-left"></i> Précédent
+              </button>
+              <span className="pagination-info">
+                Page <strong>{currentPage}</strong> / <strong>{totalPages}</strong>
+                <span className="pagination-total">({filtered.length} résultats)</span>
+              </span>
+              <button
+                className="btn btn-sm btn-secondary"
+                disabled={currentPage >= totalPages}
+                onClick={() => setCurrentPage(p => p + 1)}
+              >
+                Suivant <i className="fa-solid fa-chevron-right"></i>
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Detail View ── */}
+      {tab === 'liste' && selected && (
+        <div className="card">
+          <div className="card-header">
+            <h3>
+              <button className="btn btn-ghost btn-sm" onClick={() => setSelected(null)} style={{marginRight:8}}>
+                <i className="fa-solid fa-arrow-left"></i>
+              </button>
+              {selected.titre}
+            </h3>
+            <div style={{display:'flex', gap:8}}>
+              <button className="btn btn-sm btn-secondary" onClick={() => startEditing(selected)} title="Modifier toutes les infos">
+                <i className="fa-solid fa-pen"></i> Éditer
+              </button>
+              <select
+                value={selected.statut}
+                onChange={e => handleUpdate(selected.id, { statut: e.target.value })}
+                style={{padding:'6px 12px', borderRadius:'var(--radius-sm)', border:'1px solid var(--gray-200)', fontSize:13}}
+              >
                 <option value="NOUVEAU">Nouveau</option>
                 <option value="EN_COURS">En cours</option>
                 <option value="TERMINE">Terminé</option>
               </select>
-              <label className="checkbox-filter">
-                <input 
-                  type="checkbox" 
-                  checked={showMyOnly}
-                  onChange={(e) => {
-                    setShowMyOnly(e.target.checked);
-                    // Recharger avec le nouveau filtre
-                    setTimeout(loadSignalements, 0);
-                  }}
-                />
-                Mes signalements uniquement
-              </label>
+              <button className="btn btn-sm btn-danger" onClick={() => { handleDelete(selected.id); setSelected(null) }}>
+                <i className="fa-solid fa-trash"></i>
+              </button>
             </div>
           </div>
-          
-          <div className="signalement-list">
-            {filteredSignalements.map(s => (
-              <div 
-                key={s.id} 
-                className={`signalement-card ${selectedSignalement?.id === s.id ? 'selected' : ''}`}
-                onClick={() => { setSelectedSignalement(s); setEditMode(false); }}
-              >
-                <div className="card-header">
-                  <span className="card-id">#{s.id}</span>
-                  <span className="card-avancement">{s.avancement || getAvancement(s.statut)}%</span>
-                  {getStatusBadge(s.statut)}
-                </div>
-                <p className="card-description">{s.description}</p>
-                <div className="card-meta">
-                  <span>📅 {formatDate(s.date_signalement)}</span>
-                  {s.surface && <span>📐 {s.surface} m²</span>}
-                </div>
+          <div className="card-body">
+            <div className="detail-grid">
+              <div className="detail-item">
+                <span className="detail-label"><i className="fa-solid fa-align-left"></i> Description</span>
+                <p>{selected.description || 'Aucune description'}</p>
               </div>
-            ))}
-          </div>
-        </div>
+              <div className="detail-item">
+                <span className="detail-label"><i className="fa-solid fa-map-pin"></i> Coordonnées</span>
+                <p>{selected.latitude}, {selected.longitude}</p>
+              </div>
+              <div className="detail-item">
+                <span className="detail-label"><i className="fa-solid fa-layer-group"></i> Niveau</span>
+                <p><strong>{selected.niveau || 1}</strong>/10</p>
+              </div>
+              <div className="detail-item">
+                <span className="detail-label"><i className="fa-solid fa-ruler-combined"></i> Surface</span>
+                <p>{selected.surface_m2 ? `${selected.surface_m2} m²` : '—'}</p>
+              </div>
+              <div className="detail-item">
+                <span className="detail-label"><i className="fa-solid fa-coins"></i> Prix/m²</span>
+                <p>{selected.prix_par_m2 ? `${Number(selected.prix_par_m2).toLocaleString('fr-FR')} Ar` : '—'}</p>
+              </div>
+              <div className="detail-item highlight">
+                <span className="detail-label"><i className="fa-solid fa-calculator"></i> Budget total</span>
+                <p className="budget-value">{selected.budget ? `${Number(selected.budget).toLocaleString('fr-FR')} Ar` : '—'}</p>
+              </div>
+              <div className="detail-item">
+                <span className="detail-label"><i className="fa-solid fa-building"></i> Entreprise</span>
+                <p>{selected.entreprise || '—'}</p>
+              </div>
+              <div className="detail-item">
+                <span className="detail-label"><i className="fa-regular fa-user"></i> Signalé par</span>
+                <p>{selected.utilisateur_nom || '—'} {selected.utilisateur_email ? `(${selected.utilisateur_email})` : ''}</p>
+              </div>
+              <div className="detail-item">
+                <span className="detail-label"><i className="fa-regular fa-calendar"></i> Dates</span>
+                <p>
+                  Création: {selected.date_creation ? new Date(selected.date_creation).toLocaleDateString('fr-FR') : '—'}<br/>
+                  {selected.date_en_cours && <>En cours: {new Date(selected.date_en_cours).toLocaleDateString('fr-FR')}<br/></>}
+                  {selected.date_termine && <>Terminé: {new Date(selected.date_termine).toLocaleDateString('fr-FR')}</>}
+                </p>
+              </div>
+            </div>
 
-        {/* Right Panel - Details */}
-        <div className="detail-panel">
-          {selectedSignalement ? (
-            editMode ? (
-              // Edit Mode
-              <div className="edit-form">
-                <h2>Modifier le signalement #{selectedSignalement.id}</h2>
-                
-                <div className="form-group">
-                  <label>Description</label>
-                  <textarea
-                    value={editData.description}
-                    onChange={(e) => setEditData({...editData, description: e.target.value})}
-                    rows={4}
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label>Statut</label>
-                  <select
-                    value={editData.statut}
-                    onChange={(e) => setEditData({...editData, statut: e.target.value})}
-                  >
-                    {statusOptions.map(opt => (
-                      <option key={opt} value={opt}>
-                        {opt === 'NOUVEAU' ? 'Nouveau' : opt === 'EN_COURS' ? 'En cours' : 'Terminé'}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="form-row">
-                  <div className="form-group">
-                    <label>Surface (m²)</label>
-                    <input
-                      type="number"
-                      value={editData.surface_m2 || ''}
-                      onChange={(e) => setEditData({...editData, surface_m2: e.target.value})}
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label>Budget (Ar)</label>
-                    <input
-                      type="number"
-                      value={editData.budget || ''}
-                      onChange={(e) => setEditData({...editData, budget: e.target.value})}
-                    />
-                  </div>
-                </div>
-
-                <div className="form-group">
-                  <label>Entreprise assignée</label>
+            {/* ── Photos Section ── */}
+            <div className="photos-section">
+              <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+                <h4><i className="fa-solid fa-images"></i> Photos ({selected.photos?.filter(p => p.id)?.length || 0})</h4>
+                <div>
+                  <button className="btn btn-sm btn-secondary" onClick={() => detailFileInputRef.current?.click()}>
+                    <i className="fa-solid fa-plus"></i> Ajouter des photos
+                  </button>
                   <input
-                    type="text"
-                    value={editData.entreprise || ''}
-                    onChange={(e) => setEditData({...editData, entreprise: e.target.value})}
-                    placeholder="Nom de l'entreprise"
+                    ref={detailFileInputRef} type="file" accept="image/*" multiple hidden
+                    onChange={(e) => handleAddPhotosToExisting(e.target.files)}
                   />
                 </div>
-
-                <div className="form-actions">
-                  <button className="btn-cancel" onClick={() => setEditMode(false)}>
-                    Annuler
-                  </button>
-                  <button className="btn-save" onClick={handleSave}>
-                    💾 Enregistrer
-                  </button>
-                </div>
               </div>
-            ) : (
-              // View Mode
-              <div className="detail-view">
-                <div className="detail-header">
-                  <h2>Signalement #{selectedSignalement.id}</h2>
-                  {getStatusBadge(selectedSignalement.statut)}
+              {uploadingPhotos && (
+                <div className="alert alert-info mt-4">
+                  <i className="fa-solid fa-spinner fa-spin"></i> Compression et upload en cours...
                 </div>
-
-                <div className="detail-section">
-                  <h3>📝 Description</h3>
-                  <p>{selectedSignalement.description}</p>
-                </div>
-
-                <div className="detail-section">
-                  <h3>📍 Localisation</h3>
-                  <p>
-                    Lat: {parseFloat(selectedSignalement.latitude).toFixed(6)}<br />
-                    Lng: {parseFloat(selectedSignalement.longitude).toFixed(6)}
-                  </p>
-                </div>
-
-                <div className="detail-grid">
-                  <div className="detail-item">
-                    <span className="label">📅 Date signalement</span>
-                    <span className="value">{formatDate(selectedSignalement.date_creation)}</span>
-                  </div>
-                  <div className="detail-item">
-                    <span className="label">📐 Surface</span>
-                    <span className="value">{selectedSignalement.surface_m2 ? `${selectedSignalement.surface_m2} m²` : 'Non défini'}</span>
-                  </div>
-                  <div className="detail-item">
-                    <span className="label">💰 Budget</span>
-                    <span className="value">{selectedSignalement.budget ? `${parseInt(selectedSignalement.budget).toLocaleString()} Ar` : 'Non défini'}</span>
-                  </div>
-                  <div className="detail-item">
-                    <span className="label">🏢 Entreprise</span>
-                    <span className="value">{selectedSignalement.entreprise || 'Non assigné'}</span>
-                  </div>
-                  <div className="detail-item">
-                    <span className="label">📊 Avancement</span>
-                    <span className="value avancement-badge">{selectedSignalement.avancement || getAvancement(selectedSignalement.statut)}%</span>
-                  </div>
-                </div>
-
-                {/* Section dates d'avancement */}
-                <div className="detail-section">
-                  <h3>📆 Historique d'avancement</h3>
-                  <div className="dates-timeline">
-                    <div className={`date-step ${selectedSignalement.date_nouveau ? 'completed' : ''}`}>
-                      <span className="step-label">Nouveau (0%)</span>
-                      <span className="step-date">{selectedSignalement.date_nouveau ? formatDate(selectedSignalement.date_nouveau) : '-'}</span>
+              )}
+              {selected.photos && selected.photos.length > 0 && selected.photos[0]?.id ? (
+                <div className="photos-grid">
+                  {selected.photos.filter(p => p.id).map((p, i) => (
+                    <div key={p.id || i} className="photo-thumb" onClick={() => setViewingPhoto(p)}>
+                      <img
+                        src={getPhotoSrc(p)}
+                        alt={p.filename || `Photo ${i+1}`}
+                      />
                     </div>
-                    <div className={`date-step ${selectedSignalement.date_en_cours ? 'completed' : ''}`}>
-                      <span className="step-label">En cours (50%)</span>
-                      <span className="step-date">{selectedSignalement.date_en_cours ? formatDate(selectedSignalement.date_en_cours) : '-'}</span>
-                    </div>
-                    <div className={`date-step ${selectedSignalement.date_termine ? 'completed' : ''}`}>
-                      <span className="step-label">Terminé (100%)</span>
-                      <span className="step-date">{selectedSignalement.date_termine ? formatDate(selectedSignalement.date_termine) : '-'}</span>
-                    </div>
-                  </div>
+                  ))}
                 </div>
-
-                {/* Section Photos */}
-                <div className="detail-section">
-                  <h3>📷 Photos ({selectedSignalement.photos?.length || 0})</h3>
-                  
-                  {/* Galerie de photos existantes */}
-                  {selectedSignalement.photos && selectedSignalement.photos.length > 0 ? (
-                    <div className="photos-gallery">
-                      {selectedSignalement.photos.map((photo, idx) => (
-                        <div key={photo.id || idx} className="photo-item">
-                          <img 
-                            src={`${API_URL}/uploads/${photo.filename || photo.nom_fichier}`} 
-                            alt={`Photo ${idx + 1}`}
-                            onClick={() => window.open(`${API_URL}/uploads/${photo.filename || photo.nom_fichier}`, '_blank')}
-                          />
-                          <button 
-                            className="btn-delete-photo"
-                            onClick={() => handleDeletePhoto(photo.id)}
-                            title="Supprimer cette photo"
-                          >
-                            ×
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="no-photos">Aucune photo pour ce signalement</p>
-                  )}
-
-                  {/* Upload de nouvelles photos */}
-                  <div className="photo-upload-section">
-                    <input
-                      type="file"
-                      ref={fileInputRef}
-                      multiple
-                      accept="image/*"
-                      onChange={handlePhotoSelect}
-                      style={{ display: 'none' }}
-                    />
-                    <button 
-                      className="btn-upload"
-                      onClick={() => fileInputRef.current?.click()}
-                    >
-                      📁 Sélectionner des photos
-                    </button>
-                    {selectedPhotos.length > 0 && (
-                      <div className="selected-photos-info">
-                        <span>{selectedPhotos.length} photo(s) sélectionnée(s)</span>
-                        <button 
-                          className="btn-confirm-upload"
-                          onClick={handlePhotoUpload}
-                          disabled={uploadingPhotos}
-                        >
-                          {uploadingPhotos ? '⏳ Upload...' : '✅ Confirmer l\'upload'}
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="detail-actions">
-                  <button className="btn-edit" onClick={() => handleEdit(selectedSignalement)}>
-                    ✏️ Modifier
-                  </button>
-                  <button className="btn-delete" onClick={() => handleDelete(selectedSignalement.id)}>
-                    🗑️ Supprimer
-                  </button>
-                </div>
-              </div>
-            )
-          ) : (
-            <div className="no-selection">
-              <div className="placeholder-icon">📋</div>
-              <h3>Sélectionnez un signalement</h3>
-              <p>Cliquez sur un signalement dans la liste pour voir ses détails ou le modifier.</p>
+              ) : (
+                <p style={{color:'var(--gray-400)', textAlign:'center', padding:20}}>Aucune photo</p>
+              )}
             </div>
-          )}
+          </div>
         </div>
-      </div>
-    </div>
-  );
-};
+      )}
 
-export default ManagerView;
+      {/* ── Photo Viewer Modal ── */}
+      {viewingPhoto && (
+        <div className="modal-overlay" onClick={() => setViewingPhoto(null)}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{maxWidth:800, width:'95%', padding:16}}>
+            <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12}}>
+              <h2 style={{fontSize:16}}>{viewingPhoto.filename || 'Photo'}</h2>
+              <button className="btn btn-ghost btn-icon" onClick={() => setViewingPhoto(null)}>
+                <i className="fa-solid fa-xmark"></i>
+              </button>
+            </div>
+            <img
+              src={getPhotoSrc(viewingPhoto)}
+              alt={viewingPhoto.filename}
+              style={{width:'100%', maxHeight:'70vh', objectFit:'contain', borderRadius:'var(--radius-sm)'}}
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+export default ManagerView

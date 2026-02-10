@@ -6,17 +6,13 @@ const authMiddleware = require('../middlewares/auth.middleware');
 // Routes publiques
 router.post('/register', authController.register);
 router.post('/login', authController.login);
-router.post('/firebase/login', authController.loginWithFirebase);
 router.get('/verify', authController.verify);
-router.get('/config', authController.getLoginConfig);
+router.post('/logout', authController.logout);
 
 // Routes protégées
 router.post('/refresh', authMiddleware, authController.refreshToken);
-router.post('/logout', authMiddleware, authController.logout);
-router.get('/sessions', authMiddleware, authController.getActiveSessions);
 
-// Routes admin (déblocage)
-router.get('/blocked-users', authMiddleware, authController.getBlockedUsers);
-router.post('/unblock/:userId', authMiddleware, authController.unblockUser);
+// API admin: réinitialiser le blocage d'un utilisateur
+router.post('/reset-block/:userId', authController.resetBlock);
 
 module.exports = router;

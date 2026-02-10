@@ -1,0 +1,82 @@
+# ============================================================
+# CloudMap — Docker Compose (racine du projet)
+# Démarre l'ensemble des services : PostgreSQL, API, Frontend
+# ============================================================
+# Usage :
+#   docker-compose up -d --build        (premier lancement)
+#   docker-compose down -v              (arrêt + suppression volumes)
+#   docker-compose logs -f              (suivre les logs)
+# ============================================================
+
+services:
+
+  # ── Base de données PostgreSQL ──
+  postgres:
+    image: postgres:15-alpine
+    container_name: cloudmap-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres123
+      POSTGRES_DB: identity_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./identity-provider/init.sql:/docker-entrypoint-initdb.d/init.sql
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d identity_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ── API Backend (Node.js / Express) ──
+  api:
+    build:
+      context: ./identity-provider
+      dockerfile: Dockerfile
+    container_name: cloudmap-api
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+      - JWT_SECRET=73eec47c44d248d5efc6aa4fe836f95b3a504c1d
+      - JWT_EXPIRES_IN=24h
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres123
+      - DB_NAME=identity_db
+      - FIREBASE_PROJECT_ID=project-cloud-map
+      - FIREBASE_DATABASE_URL=https://project-cloud-map-default-rtdb.firebaseio.com
+      - FIREBASE_API_KEY=AIzaSyDU4KVWdnV-31QPduGXlzgEwLO5ws9Sxz0
+    volumes:
+      - ./identity-provider/src:/app/src
+      - ./identity-provider/uploads:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── Frontend React (Vite dev server) ──
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: cloudmap-frontend
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
+      - ./frontend/index.html:/app/index.html
+      - ./frontend/vite.config.js:/app/vite.config.js
+    environment:
+      - VITE_API_URL=http://localhost:3000
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
