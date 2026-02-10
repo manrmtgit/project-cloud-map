@@ -53,7 +53,7 @@
         <h2 class="section-title">Mes derniers signalements</h2>
 
         <div v-if="recentSignalements.length === 0" class="empty-state">
-          <ion-icon :icon="mapOutline"></ion-icon>
+          <ion-icon :icon="mapOutline" style="font-size: 48px; color: #D1D5DB; margin-bottom: 12px;"></ion-icon>
           <p>Vous n'avez pas encore créé de signalement</p>
           <ion-button fill="clear" @click="goToMap">
             Créer mon premier signalement
@@ -157,27 +157,27 @@ import {
   IonTitle,
   IonContent,
   IonButton,
-  IonIcon,
   IonSpinner,
   IonModal,
   IonButtons,
   IonLabel,
   IonInput,
   IonAlert,
+  IonIcon,
   toastController
 } from '@ionic/vue';
-import {
-  personOutline,
-  settingsOutline,
-  logOutOutline,
-  mapOutline
-} from 'ionicons/icons';
 import { useAuthStore, useSignalementsStore } from '@/stores';
 import type { Signalement } from '@/models';
 import { isValidEmail, isValidName } from '@/utils/validators';
 import { SUCCESS_MESSAGES } from '@/utils/constants';
 import UserAvatar from '@/components/UserAvatar.vue';
 import SignalementCard from '@/components/SignalementCard.vue';
+import {
+  personOutline,
+  settingsOutline,
+  mapOutline,
+  logOutOutline
+} from 'ionicons/icons';
 
 const router = useRouter();
 const authStore = useAuthStore();
@@ -429,12 +429,6 @@ ion-title {
   padding: 40px 20px;
   background: white;
   border-radius: 16px;
-}
-
-.empty-state ion-icon {
-  font-size: 48px;
-  color: #D1D5DB;
-  margin-bottom: 12px;
 }
 
 .empty-state p {

@@ -54,13 +54,13 @@
 
           <!-- Message d'erreur -->
           <div v-if="authStore.error" class="error-message">
-            <ion-icon :icon="alertCircleOutline"></ion-icon>
+            <ion-icon :icon="alertCircleOutline" style="color: #EF4444; font-size: 20px; flex-shrink: 0;"></ion-icon>
             <span>{{ authStore.error }}</span>
           </div>
 
           <!-- Info tentatives restantes -->
           <div v-if="authStore.loginAttempts > 0 && !authStore.isBlocked" class="warning-message">
-            <ion-icon :icon="warningOutline"></ion-icon>
+            <ion-icon :icon="warningOutline" style="color: #F59E0B; font-size: 20px; flex-shrink: 0;"></ion-icon>
             <span>Attention: {{ authStore.remainingAttempts }} tentative(s) restante(s) avant blocage.</span>
           </div>
 
@@ -77,7 +77,7 @@
 
           <!-- Message pour les utilisateurs -->
           <div class="login-info">
-            <ion-icon :icon="informationCircleOutline"></ion-icon>
+            <ion-icon :icon="informationCircleOutline" style="color: #6B4FFF; font-size: 20px; flex-shrink: 0;"></ion-icon>
             <p>Les comptes sont créés par un administrateur. Contactez votre manager si vous n'avez pas d'identifiants.</p>
           </div>
         </div>
@@ -94,20 +94,20 @@ import {
   IonContent,
   IonInput,
   IonButton,
-  IonIcon,
-  IonSpinner
+  IonSpinner,
+  IonIcon
 } from '@ionic/vue';
+import { useAuthStore } from '@/stores';
+import { isValidEmail, isValidPassword } from '@/utils/validators';
 import {
   mailOutline,
   lockClosedOutline,
   eyeOutline,
   eyeOffOutline,
   alertCircleOutline,
-  informationCircleOutline,
-  warningOutline
+  warningOutline,
+  informationCircleOutline
 } from 'ionicons/icons';
-import {useAuthStore} from '@/stores';
-import {isValidEmail, isValidPassword} from '@/utils/validators';
 
 const router = useRouter();
 const authStore = useAuthStore();
@@ -268,8 +268,6 @@ const handleLogin = async () => {
 }
 
 .error-message ion-icon {
-  color: #EF4444;
-  font-size: 20px;
   flex-shrink: 0;
 }
 
@@ -291,8 +289,6 @@ const handleLogin = async () => {
 }
 
 .warning-message ion-icon {
-  color: #F59E0B;
-  font-size: 20px;
   flex-shrink: 0;
 }
 
@@ -333,8 +329,6 @@ const handleLogin = async () => {
 }
 
 .login-info ion-icon {
-  color: #6B4FFF;
-  font-size: 20px;
   flex-shrink: 0;
 }
 

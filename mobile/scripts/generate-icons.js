@@ -43,9 +43,24 @@ const sizes = {
 };
 
 const inputSvg = path.join(__dirname, '../public/icon.svg');
+const inputPng = path.join(__dirname, '../public/icon-source.png');
 const outputDir = path.join(__dirname, '../resources/icons');
 
+// Android mipmap directories for Capacitor
+const androidResDir = path.join(__dirname, '../android/app/src/main/res');
+const androidMipmapSizes = {
+  'mipmap-mdpi': 48,
+  'mipmap-hdpi': 72,
+  'mipmap-xhdpi': 96,
+  'mipmap-xxhdpi': 144,
+  'mipmap-xxxhdpi': 192
+};
+
 async function generateIcons() {
+  // Determine source file (prefer PNG if available)
+  const sourceFile = fs.existsSync(inputPng) ? inputPng : inputSvg;
+  console.log(`Using source: ${path.basename(sourceFile)}`);
+
   // Create output directories
   ['android', 'ios', 'pwa'].forEach(dir => {
     const dirPath = path.join(outputDir, dir);
@@ -60,7 +75,7 @@ async function generateIcons() {
     const outputPath = path.join(outputDir, `${name}.png`);
 
     try {
-      await sharp(inputSvg)
+      await sharp(sourceFile)
         .resize(size, size)
         .png()
         .toFile(outputPath);
@@ -71,10 +86,31 @@ async function generateIcons() {
     }
   }
 
+  // Copy to Android mipmap directories (for Capacitor app icon)
+  if (fs.existsSync(androidResDir)) {
+    console.log('\nCopying to Android mipmap directories...');
+    for (const [mipmapDir, size] of Object.entries(androidMipmapSizes)) {
+      const targetDir = path.join(androidResDir, mipmapDir);
+      if (fs.existsSync(targetDir)) {
+        const iconPath = path.join(targetDir, 'ic_launcher.png');
+        const roundPath = path.join(targetDir, 'ic_launcher_round.png');
+        const foregroundPath = path.join(targetDir, 'ic_launcher_foreground.png');
+        try {
+          await sharp(sourceFile).resize(size, size).png().toFile(iconPath);
+          await sharp(sourceFile).resize(size, size).png().toFile(roundPath);
+          await sharp(sourceFile).resize(size, size).png().toFile(foregroundPath);
+          console.log(`✓ Android ${mipmapDir} (${size}x${size})`);
+        } catch (error) {
+          console.error(`✗ Failed ${mipmapDir}:`, error.message);
+        }
+      }
+    }
+  }
+
   // Also generate favicon
   const faviconPath = path.join(__dirname, '../public/favicon.png');
   try {
-    await sharp(inputSvg)
+    await sharp(sourceFile)
       .resize(32, 32)
       .png()
       .toFile(faviconPath);
@@ -86,7 +122,7 @@ async function generateIcons() {
   // Generate large icon for public
   const publicIconPath = path.join(__dirname, '../public/icon-512.png');
   try {
-    await sharp(inputSvg)
+    await sharp(sourceFile)
       .resize(512, 512)
       .png()
       .toFile(publicIconPath);

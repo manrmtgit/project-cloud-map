@@ -17,8 +17,8 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { IonIcon } from '@ionic/vue';
-import { trendingUp, trendingDown } from 'ionicons/icons';
 import { formatNumber, formatCurrency, formatSurface, formatPercentage } from '@/utils/formatters';
+import { trendingUpOutline, trendingDownOutline } from 'ionicons/icons';
 
 interface Props {
   icon: string;
@@ -57,7 +57,7 @@ const trendClass = computed(() => ({
 }));
 
 const trendIcon = computed(() => {
-  return props.trend && props.trend > 0 ? trendingUp : trendingDown;
+  return props.trend && props.trend > 0 ? trendingUpOutline : trendingDownOutline;
 });
 </script>
 
@@ -92,7 +92,7 @@ const trendIcon = computed(() => {
 }
 
 .stats-card__icon ion-icon {
-  font-size: 24px;
+  font-size: 22px;
 }
 
 .stats-card__content {
