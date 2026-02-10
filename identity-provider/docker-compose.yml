@@ -27,6 +27,8 @@ services:
       - PORT=3000
       - JWT_SECRET=73eec47c44d248d5efc6aa4fe836f95b3a504c1d
       - JWT_EXPIRES_IN=24h
+      - MAX_LOGIN_ATTEMPTS=3
+      - LOCK_DURATION_MINUTES=15
       - DB_HOST=postgres
       - DB_PORT=5432
       - DB_USER=cloudmap

@@ -124,3 +124,18 @@ CREATE TRIGGER trg_update_utilisateurs
 BEFORE UPDATE ON utilisateurs
 FOR EACH ROW
 EXECUTE FUNCTION update_date_mise_a_jour();
+
+
+ALTER TABLE users ADD COLUMN IF NOT EXISTS failed_login_attempts INTEGER DEFAULT 0; 
+ALTER TABLE users ADD COLUMN IF NOT EXISTS is_locked BOOLEAN DEFAULT FALSE; 
+ALTER TABLE users ADD COLUMN IF NOT EXISTS locked_until TIMESTAMP NULL;
+
+CREATE TABLE IF NOT EXISTS sessions (id SERIAL PRIMARY KEY, user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE, token TEXT UNIQUE NOT NULL, is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, expires_at TIMESTAMP NOT NULL); CREATE INDEX IF NOT EXISTS idx_sessions_token ON sessions(token); 
+CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id); 
+CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);
+
+DROP TABLE IF EXISTS sessions CASCADE; 
+CREATE TABLE sessions (id SERIAL PRIMARY KEY, user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE, token TEXT UNIQUE NOT NULL, is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, expires_at TIMESTAMP NOT NULL);
+
+CREATE INDEX idx_sessions_token ON sessions(token); 
+CREATE INDEX idx_sessions_user_id ON sessions(user_id); CREATE INDEX idx_sessions_expires ON sessions(expires_at);
