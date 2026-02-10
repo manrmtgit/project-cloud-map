@@ -52,11 +52,18 @@ const ManagerView = () => {
     latitude: '',
     longitude: '',
     surface_m2: '',
-    budget: '',
+    niveau: '',
     entreprise: ''
   });
   const [addPhotos, setAddPhotos] = useState([]);
   const [suggesting, setSuggesting] = useState(false);
+
+  // État pour le backoffice (prix par m²)
+  const [backofficeConfig, setBackofficeConfig] = useState(null);
+  const [showBackoffice, setShowBackoffice] = useState(false);
+  const [newPrixM2, setNewPrixM2] = useState('');
+  const [updatingPrix, setUpdatingPrix] = useState(false);
+  const [budgetPreview, setBudgetPreview] = useState(null);
 
   const statusOptions = ['NOUVEAU', 'EN_COURS', 'TERMINE'];
 
@@ -64,6 +71,7 @@ const ManagerView = () => {
     loadSignalements();
     loadDetailedStats();
     loadFirebaseSyncStats();
+    loadBackofficeConfig();
     if (user?.id) {
       loadNotifications();
     }
@@ -183,6 +191,47 @@ const ManagerView = () => {
     }
   };
 
+  // === BACKOFFICE FUNCTIONS ===
+  const loadBackofficeConfig = async () => {
+    try {
+      const result = await signalementService.getBackofficeConfig();
+      if (result.success) {
+        setBackofficeConfig(result.config);
+        setNewPrixM2(result.config.prix_par_m2.valeur);
+      }
+    } catch (error) {
+      console.error('Erreur chargement config backoffice:', error);
+    }
+  };
+
+  const handleUpdatePrixM2 = async () => {
+    if (!newPrixM2 || newPrixM2 <= 0) {
+      alert('Veuillez entrer un prix valide');
+      return;
+    }
+    setUpdatingPrix(true);
+    try {
+      const result = await signalementService.updatePrixParM2(parseFloat(newPrixM2));
+      alert(`✅ Prix mis à jour à ${parseInt(newPrixM2).toLocaleString()} Ar/m²\n${result.signalements_recalcules} signalement(s) recalculé(s)`);
+      await loadBackofficeConfig();
+      await loadSignalements();
+    } catch (error) {
+      console.error('Erreur mise à jour prix:', error);
+      alert('❌ Erreur lors de la mise à jour du prix');
+    } finally {
+      setUpdatingPrix(false);
+    }
+  };
+
+  // Calcul du budget preview en temps réel
+  const calculateBudgetPreview = (niveau, surface_m2) => {
+    if (backofficeConfig && niveau && surface_m2) {
+      const prix = backofficeConfig.prix_par_m2.valeur;
+      return prix * parseInt(niveau) * parseFloat(surface_m2);
+    }
+    return null;
+  };
+
   const handleEdit = (signalement) => {
     setSelectedSignalement(signalement);
     setEditData({
@@ -190,7 +239,7 @@ const ManagerView = () => {
       description: signalement.description,
       statut: signalement.statut,
       surface_m2: signalement.surface_m2 || '',
-      budget: signalement.budget || '',
+      niveau: signalement.niveau || '',
       entreprise: signalement.entreprise || ''
     });
     setEditMode(true);
@@ -319,7 +368,7 @@ const ManagerView = () => {
         latitude: parseFloat(addFormData.latitude),
         longitude: parseFloat(addFormData.longitude),
         surface_m2: addFormData.surface_m2 ? parseFloat(addFormData.surface_m2) : null,
-        budget: addFormData.budget ? parseFloat(addFormData.budget) : null,
+        niveau: addFormData.niveau ? parseInt(addFormData.niveau) : null,
         user_id: user?.id
       });
       
@@ -336,11 +385,12 @@ const ManagerView = () => {
         latitude: '',
         longitude: '',
         surface_m2: '',
-        budget: '',
+        niveau: '',
         entreprise: ''
       });
       setAddPhotos([]);
       setQuartiers([]);
+      setBudgetPreview(null);
       alert('Signalement créé avec succès !');
     } catch (error) {
       console.error('Erreur création:', error);
@@ -405,6 +455,12 @@ const ManagerView = () => {
           >
             ➕ Nouveau signalement
           </button>
+          <button
+            className={`btn-backoffice ${showBackoffice ? 'active' : ''}`}
+            onClick={() => setShowBackoffice(!showBackoffice)}
+          >
+            ⚙️ Backoffice
+          </button>
           <Link to="/stats" className="btn-stats-page">
             📊 Statistiques
           </Link>
@@ -446,6 +502,63 @@ const ManagerView = () => {
                 </div>
               ))
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Panel Backoffice - Prix par m² */}
+      {showBackoffice && (
+        <div className="backoffice-panel">
+          <div className="backoffice-header">
+            <h3>⚙️ Configuration Backoffice</h3>
+            <button className="btn-close-backoffice" onClick={() => setShowBackoffice(false)}>✕</button>
+          </div>
+          <div className="backoffice-content">
+            <div className="prix-m2-section">
+              <div className="prix-current">
+                <span className="prix-label">Prix forfaitaire actuel par m²</span>
+                <span className="prix-value">
+                  {backofficeConfig ? `${parseInt(backofficeConfig.prix_par_m2.valeur).toLocaleString()} Ar/m²` : 'Chargement...'}
+                </span>
+                {backofficeConfig && (
+                  <span className="prix-date">
+                    Dernière mise à jour : {formatDate(backofficeConfig.prix_par_m2.date_mise_a_jour)}
+                  </span>
+                )}
+              </div>
+              <div className="prix-update">
+                <label>Modifier le prix par m² (Ar)</label>
+                <div className="prix-input-row">
+                  <input
+                    type="number"
+                    value={newPrixM2}
+                    onChange={(e) => setNewPrixM2(e.target.value)}
+                    placeholder="Ex: 50000"
+                    min="1"
+                  />
+                  <button
+                    className="btn-update-prix"
+                    onClick={handleUpdatePrixM2}
+                    disabled={updatingPrix}
+                  >
+                    {updatingPrix ? '⏳ Mise à jour...' : '✅ Appliquer'}
+                  </button>
+                </div>
+                <p className="prix-warning">⚠️ Modifier le prix recalculera automatiquement le budget de <strong>tous</strong> les signalements existants.</p>
+              </div>
+            </div>
+            <div className="formule-section">
+              <h4>📐 Formule de calcul du budget</h4>
+              <div className="formule-box">
+                <span className="formule-text">Budget = Prix/m² × Niveau (1-10) × Surface (m²)</span>
+              </div>
+              <div className="niveaux-legend">
+                <span className="niveau-legend-item"><span className="niveau-dot niveau-low"></span> 1-3 : Léger</span>
+                <span className="niveau-legend-item"><span className="niveau-dot niveau-mid"></span> 4-6 : Modéré</span>
+                <span className="niveau-legend-item"><span className="niveau-dot niveau-high"></span> 7-8 : Important</span>
+                <span className="niveau-legend-item"><span className="niveau-dot niveau-critical"></span> 9-10 : Critique</span>
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -597,20 +710,45 @@ const ManagerView = () => {
                   <input
                     type="number"
                     value={addFormData.surface_m2}
-                    onChange={(e) => setAddFormData({...addFormData, surface_m2: e.target.value})}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setAddFormData({...addFormData, surface_m2: val});
+                      setBudgetPreview(calculateBudgetPreview(addFormData.niveau, val));
+                    }}
                     placeholder="Ex: 50"
                   />
                 </div>
                 <div className="form-group">
-                  <label>Budget (Ar)</label>
-                  <input
-                    type="number"
-                    value={addFormData.budget}
-                    onChange={(e) => setAddFormData({...addFormData, budget: e.target.value})}
-                    placeholder="Ex: 5000000"
-                  />
+                  <label>🔧 Niveau de réparation (1-10)</label>
+                  <select
+                    value={addFormData.niveau}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setAddFormData({...addFormData, niveau: val});
+                      setBudgetPreview(calculateBudgetPreview(val, addFormData.surface_m2));
+                    }}
+                    className="niveau-select"
+                  >
+                    <option value="">-- Sélectionner --</option>
+                    {[1,2,3,4,5,6,7,8,9,10].map(n => (
+                      <option key={n} value={n}>Niveau {n} {n <= 3 ? '(Léger)' : n <= 6 ? '(Modéré)' : n <= 8 ? '(Important)' : '(Critique)'}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
+
+              {/* Aperçu du budget auto-calculé */}
+              {(addFormData.niveau && addFormData.surface_m2 && backofficeConfig) && (
+                <div className="budget-preview">
+                  <div className="budget-preview-header">💰 Budget estimé automatiquement</div>
+                  <div className="budget-preview-formula">
+                    {parseInt(backofficeConfig.prix_par_m2.valeur).toLocaleString()} Ar/m² × Niveau {addFormData.niveau} × {addFormData.surface_m2} m²
+                  </div>
+                  <div className="budget-preview-result">
+                    = {calculateBudgetPreview(addFormData.niveau, addFormData.surface_m2)?.toLocaleString()} Ar
+                  </div>
+                </div>
+              )}
 
               <div className="form-group">
                 <label>Entreprise assignée</label>
@@ -695,7 +833,8 @@ const ManagerView = () => {
                 <p className="card-description">{s.description}</p>
                 <div className="card-meta">
                   <span>📅 {formatDate(s.date_signalement)}</span>
-                  {s.surface && <span>📐 {s.surface} m²</span>}
+                  {s.niveau && <span className={`card-niveau niveau-${s.niveau <= 3 ? 'low' : s.niveau <= 6 ? 'mid' : s.niveau <= 8 ? 'high' : 'critical'}`}>Niv.{s.niveau}</span>}
+                  {s.budget && <span>� {parseInt(s.budget).toLocaleString()} Ar</span>}
                 </div>
               </div>
             ))}
@@ -743,14 +882,32 @@ const ManagerView = () => {
                     />
                   </div>
                   <div className="form-group">
-                    <label>Budget (Ar)</label>
-                    <input
-                      type="number"
-                      value={editData.budget || ''}
-                      onChange={(e) => setEditData({...editData, budget: e.target.value})}
-                    />
+                    <label>🔧 Niveau de réparation (1-10)</label>
+                    <select
+                      value={editData.niveau || ''}
+                      onChange={(e) => setEditData({...editData, niveau: e.target.value})}
+                      className="niveau-select"
+                    >
+                      <option value="">-- Sélectionner --</option>
+                      {[1,2,3,4,5,6,7,8,9,10].map(n => (
+                        <option key={n} value={n}>Niveau {n} {n <= 3 ? '(Léger)' : n <= 6 ? '(Modéré)' : n <= 8 ? '(Important)' : '(Critique)'}</option>
+                      ))}
+                    </select>
                   </div>
                 </div>
+
+                {/* Aperçu du budget recalculé */}
+                {(editData.niveau && editData.surface_m2 && backofficeConfig) && (
+                  <div className="budget-preview">
+                    <div className="budget-preview-header">💰 Budget recalculé automatiquement</div>
+                    <div className="budget-preview-formula">
+                      {parseInt(backofficeConfig.prix_par_m2.valeur).toLocaleString()} Ar/m² × Niveau {editData.niveau} × {editData.surface_m2} m²
+                    </div>
+                    <div className="budget-preview-result">
+                      = {calculateBudgetPreview(editData.niveau, editData.surface_m2)?.toLocaleString()} Ar
+                    </div>
+                  </div>
+                )}
 
                 <div className="form-group">
                   <label>Entreprise assignée</label>
@@ -802,7 +959,17 @@ const ManagerView = () => {
                     <span className="value">{selectedSignalement.surface_m2 ? `${selectedSignalement.surface_m2} m²` : 'Non défini'}</span>
                   </div>
                   <div className="detail-item">
-                    <span className="label">💰 Budget</span>
+                    <span className="label">� Niveau</span>
+                    <span className="value">
+                      {selectedSignalement.niveau ? (
+                        <span className={`niveau-badge niveau-${selectedSignalement.niveau <= 3 ? 'low' : selectedSignalement.niveau <= 6 ? 'mid' : selectedSignalement.niveau <= 8 ? 'high' : 'critical'}`}>
+                          {selectedSignalement.niveau}/10
+                        </span>
+                      ) : 'Non défini'}
+                    </span>
+                  </div>
+                  <div className="detail-item">
+                    <span className="label">�💰 Budget</span>
                     <span className="value">{selectedSignalement.budget ? `${parseInt(selectedSignalement.budget).toLocaleString()} Ar` : 'Non défini'}</span>
                   </div>
                   <div className="detail-item">
@@ -814,6 +981,17 @@ const ManagerView = () => {
                     <span className="value avancement-badge">{selectedSignalement.avancement || getAvancement(selectedSignalement.statut)}%</span>
                   </div>
                 </div>
+
+                {/* Formule du budget */}
+                {selectedSignalement.niveau && selectedSignalement.surface_m2 && backofficeConfig && (
+                  <div className="budget-detail-card">
+                    <span className="budget-formula-label">📊 Calcul du budget :</span>
+                    <span className="budget-formula-text">
+                      {parseInt(backofficeConfig.prix_par_m2.valeur).toLocaleString()} Ar/m² × Niv.{selectedSignalement.niveau} × {selectedSignalement.surface_m2} m²
+                      = <strong>{parseInt(selectedSignalement.budget).toLocaleString()} Ar</strong>
+                    </span>
+                  </div>
+                )}
 
                 {/* Section dates d'avancement */}
                 <div className="detail-section">

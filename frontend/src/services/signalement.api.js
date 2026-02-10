@@ -129,6 +129,27 @@ export const signalementService = {
   getSyncStatus: async () => {
     const response = await api.get('/api/signalements/sync/status')
     return response.data
+  },
+
+  // === BACKOFFICE ===
+  // Récupérer la config backoffice (prix par m²)
+  getBackofficeConfig: async () => {
+    const response = await api.get('/api/signalements/backoffice/config')
+    return response.data
+  },
+
+  // Mettre à jour le prix par m²
+  updatePrixParM2: async (prix_par_m2) => {
+    const response = await api.put('/api/signalements/backoffice/prix-m2', { prix_par_m2 })
+    return response.data
+  },
+
+  // Simuler un budget
+  simulerBudget: async (niveau, surface_m2) => {
+    const response = await api.get('/api/signalements/backoffice/simuler-budget', {
+      params: { niveau, surface_m2 }
+    })
+    return response.data
   }
 }
 
