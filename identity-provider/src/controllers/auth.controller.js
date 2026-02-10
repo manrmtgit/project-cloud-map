@@ -2,6 +2,7 @@ const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 const { pool } = require('../config/database');
 const { JWT_SECRET, JWT_EXPIRES_IN, MAX_LOGIN_ATTEMPTS, SESSION_DURATION } = require('../config');
+const { verifyFirebaseToken, syncUserToFirestore, isFirebaseEnabled } = require('../services/firebase');
 
 /**
  * Convertit une durée string (ex: '24h', '7d', '30m') en millisecondes
@@ -49,6 +50,12 @@ class AuthController {
 
             const user = await User.create({ email, password, name });
 
+            // Synchroniser vers Firebase si activé
+            if (isFirebaseEnabled()) {
+                syncUserToFirestore(User.toJSON(user));
+            }
+
+            // Générer le token JWT
             const token = jwt.sign(
                 { userId: user.id, email: user.email },
                 JWT_SECRET,
@@ -179,6 +186,53 @@ class AuthController {
 
         } catch (error) {
             res.status(500).json({ error: error.message });
+        }
+    }
+
+    // ==========================================
+    // CONNEXION VIA FIREBASE TOKEN
+    // ==========================================
+    async loginWithFirebase(req, res) {
+        try {
+            const { firebaseToken } = req.body;
+
+            if (!firebaseToken) {
+                return res.status(400).json({
+                    error: 'Token Firebase requis'
+                });
+            }
+
+            // Vérifier le token Firebase
+            const decodedToken = await verifyFirebaseToken(firebaseToken);
+            
+            // Chercher ou créer l'utilisateur dans PostgreSQL
+            let user = await User.findByEmail(decodedToken.email);
+            
+            if (!user) {
+                // Créer l'utilisateur s'il n'existe pas
+                user = await User.create({
+                    email: decodedToken.email,
+                    password: 'firebase-auth-' + Date.now(), // Mot de passe placeholder
+                    name: decodedToken.name || decodedToken.email.split('@')[0]
+                });
+            }
+
+            // Générer le token JWT
+            const token = jwt.sign(
+                { userId: user.id, email: user.email },
+                JWT_SECRET,
+                { expiresIn: JWT_EXPIRES_IN }
+            );
+
+            res.json({
+                message: 'Connexion Firebase réussie',
+                user: User.toJSON(user),
+                token
+            });
+
+        } catch (error) {
+            console.error('Erreur login Firebase:', error);
+            res.status(401).json({ error: 'Token Firebase invalide' });
         }
     }
 

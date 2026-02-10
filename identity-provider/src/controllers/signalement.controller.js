@@ -1,6 +1,7 @@
 const { pool } = require('../config/database');
 const path = require('path');
 const fs = require('fs');
+const { syncSignalementToFirestore, isFirebaseEnabled } = require('../services/firebase');
 
 // Récupérer tous les signalements avec photos
 const getAllSignalements = async (req, res) => {

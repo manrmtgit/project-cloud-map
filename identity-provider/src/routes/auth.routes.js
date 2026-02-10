@@ -6,6 +6,7 @@ const authMiddleware = require('../middlewares/auth.middleware');
 // Routes publiques
 router.post('/register', authController.register);
 router.post('/login', authController.login);
+router.post('/firebase/login', authController.loginWithFirebase);
 router.get('/verify', authController.verify);
 router.get('/config', authController.getLoginConfig);
 
