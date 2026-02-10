@@ -227,6 +227,10 @@ const MapView = () => {
               <span class="popup-label">🏢 Entreprise</span>
               <span class="popup-value">${signalement.entreprise || 'Non assignée'}</span>
             </div>
+            <div class="popup-info-item">
+              <span class="popup-label">🔧 Niveau</span>
+              <span class="popup-value">${signalement.niveau || 1} / 10</span>
+            </div>
           </div>
           ${signalement.photos && signalement.photos.length > 0 ? `
             <div class="popup-photos">

@@ -104,6 +104,19 @@ export const signalementService = {
   markAllNotificationsRead: async (userId) => {
     const response = await api.put(`/api/signalements/notifications/${userId}/read-all`)
     return response.data
+  },
+
+  // === PARAMETRES / SETTINGS ===
+  // Récupérer les paramètres (prix_par_m2, etc.)
+  getSettings: async () => {
+    const response = await api.get('/api/signalements/settings')
+    return response.data
+  },
+
+  // Mettre à jour un paramètre
+  updateSettings: async (cle, valeur) => {
+    const response = await api.put('/api/signalements/settings', { cle, valeur })
+    return response.data
   }
 }
 

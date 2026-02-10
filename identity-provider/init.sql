@@ -128,6 +128,7 @@ CREATE TABLE IF NOT EXISTS signalements (
     surface_m2 NUMERIC(10,2),
     budget NUMERIC(12,2),
     entreprise VARCHAR(255),
+    niveau INTEGER DEFAULT 1 CHECK (niveau >= 1 AND niveau <= 10),
     -- Dates par étape d'avancement
     date_nouveau TIMESTAMP DEFAULT NOW(),
     date_en_cours TIMESTAMP,
@@ -176,6 +177,22 @@ CREATE TABLE IF NOT EXISTS notifications (
 );
 
 -- =========================
+-- PARAMETRES (configuration backoffice)
+-- =========================
+CREATE TABLE IF NOT EXISTS parametres (
+    id SERIAL PRIMARY KEY,
+    cle VARCHAR(100) UNIQUE NOT NULL,
+    valeur VARCHAR(255) NOT NULL,
+    description TEXT,
+    date_modification TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+-- Prix par m2 forfaitaire par défaut
+INSERT INTO parametres (cle, valeur, description) VALUES
+('prix_par_m2', '50000', 'Prix forfaitaire par m² pour le calcul du budget (en Ariary)')
+ON CONFLICT (cle) DO NOTHING;
+
+-- =========================
 -- TRIGGERS
 -- =========================
 CREATE OR REPLACE FUNCTION update_date_mise_a_jour()
@@ -201,15 +218,16 @@ EXECUTE FUNCTION update_date_mise_a_jour();
 -- =========================
 -- DONNÉES DE TEST (Signalements à Antananarivo)
 -- =========================
-INSERT INTO signalements (titre, description, latitude, longitude, statut, avancement, surface_m2, budget, entreprise, date_nouveau, date_en_cours, date_termine) VALUES
-('Nid de poule Avenue de l''Indépendance', 'Grand nid de poule dangereux au centre-ville', -18.9137, 47.5226, 'NOUVEAU', 0, 15.50, 2500000, NULL, NOW(), NULL, NULL),
-('Route dégradée Analakely', 'Revêtement très abîmé sur 50m', -18.9100, 47.5250, 'EN_COURS', 50, 120.00, 45000000, 'COLAS Madagascar', NOW() - INTERVAL '10 days', NOW() - INTERVAL '5 days', NULL),
-('Fissures Boulevard Ratsimilaho', 'Nombreuses fissures longitudinales', -18.9050, 47.5180, 'TERMINE', 100, 85.00, 28000000, 'SOGEA SATOM', NOW() - INTERVAL '30 days', NOW() - INTERVAL '20 days', NOW() - INTERVAL '5 days'),
-('Affaissement route Ivandry', 'Affaissement important près du canal', -18.8850, 47.5350, 'EN_COURS', 50, 45.00, 18000000, 'COLAS Madagascar', NOW() - INTERVAL '15 days', NOW() - INTERVAL '8 days', NULL),
-('Trous multiples Ankadifotsy', 'Plusieurs trous sur la chaussée', -18.9200, 47.5100, 'NOUVEAU', 0, 30.00, 8500000, NULL, NOW(), NULL, NULL),
-('Dégradation carrefour Ambohijatovo', 'Carrefour très endommagé', -18.9080, 47.5280, 'NOUVEAU', 0, 200.00, 75000000, NULL, NOW() - INTERVAL '2 days', NULL, NULL),
-('Route effondrée Ampefiloha', 'Effondrement partiel de la route', -18.9180, 47.5150, 'EN_COURS', 50, 65.00, 32000000, 'ENTREPRISE MALAKY', NOW() - INTERVAL '20 days', NOW() - INTERVAL '12 days', NULL),
-('Nids de poule Tsaralalana', 'Zone avec multiples nids de poule', -18.9120, 47.5300, 'TERMINE', 100, 40.00, 12000000, 'SOGEA SATOM', NOW() - INTERVAL '45 days', NOW() - INTERVAL '30 days', NOW() - INTERVAL '10 days')
+-- Budget = prix_par_m2 (50000) * niveau * surface_m2
+INSERT INTO signalements (titre, description, latitude, longitude, statut, avancement, surface_m2, niveau, budget, entreprise, date_nouveau, date_en_cours, date_termine) VALUES
+('Nid de poule Avenue de l''Indépendance', 'Grand nid de poule dangereux au centre-ville', -18.9137, 47.5226, 'NOUVEAU', 0, 15.50, 2, 1550000, NULL, NOW(), NULL, NULL),
+('Route dégradée Analakely', 'Revêtement très abîmé sur 50m', -18.9100, 47.5250, 'EN_COURS', 50, 120.00, 5, 30000000, 'COLAS Madagascar', NOW() - INTERVAL '10 days', NOW() - INTERVAL '5 days', NULL),
+('Fissures Boulevard Ratsimilaho', 'Nombreuses fissures longitudinales', -18.9050, 47.5180, 'TERMINE', 100, 85.00, 4, 17000000, 'SOGEA SATOM', NOW() - INTERVAL '30 days', NOW() - INTERVAL '20 days', NOW() - INTERVAL '5 days'),
+('Affaissement route Ivandry', 'Affaissement important près du canal', -18.8850, 47.5350, 'EN_COURS', 50, 45.00, 6, 13500000, 'COLAS Madagascar', NOW() - INTERVAL '15 days', NOW() - INTERVAL '8 days', NULL),
+('Trous multiples Ankadifotsy', 'Plusieurs trous sur la chaussée', -18.9200, 47.5100, 'NOUVEAU', 0, 30.00, 3, 4500000, NULL, NOW(), NULL, NULL),
+('Dégradation carrefour Ambohijatovo', 'Carrefour très endommagé', -18.9080, 47.5280, 'NOUVEAU', 0, 200.00, 7, 70000000, NULL, NOW() - INTERVAL '2 days', NULL, NULL),
+('Route effondrée Ampefiloha', 'Effondrement partiel de la route', -18.9180, 47.5150, 'EN_COURS', 50, 65.00, 8, 26000000, 'ENTREPRISE MALAKY', NOW() - INTERVAL '20 days', NOW() - INTERVAL '12 days', NULL),
+('Nids de poule Tsaralalana', 'Zone avec multiples nids de poule', -18.9120, 47.5300, 'TERMINE', 100, 40.00, 3, 6000000, 'SOGEA SATOM', NOW() - INTERVAL '45 days', NOW() - INTERVAL '30 days', NOW() - INTERVAL '10 days')
 ON CONFLICT DO NOTHING;
 
 -- Ajouter les photos de test (utilisant les images du dossier sary)

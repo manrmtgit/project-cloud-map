@@ -1189,3 +1189,49 @@
   font-size: 0.85rem;
   color: #4caf50;
 }
+
+/* Settings button */
+.btn-settings {
+  padding: 10px 20px;
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.btn-settings:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: translateY(-1px);
+}
+
+/* Budget preview */
+.budget-preview {
+  background: #e8f5e9;
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin-top: 10px;
+  color: #2e7d32;
+  font-size: 0.95rem;
+}
+
+.budget-preview strong {
+  color: #1b5e20;
+}
+
+.budget-preview small {
+  display: block;
+  margin-top: 4px;
+  color: #4caf50;
+  font-size: 0.8rem;
+}
+
+/* Card title */
+.card-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #2c3e50;
+  margin: 5px 0 3px 0;
+}

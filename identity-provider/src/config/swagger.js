@@ -83,7 +83,8 @@ const options = {
                         statut: { type: 'string', enum: ['NOUVEAU', 'EN_COURS', 'TERMINE'] },
                         avancement: { type: 'integer', enum: [0, 50, 100] },
                         surface_m2: { type: 'number' },
-                        budget: { type: 'number' },
+                        niveau: { type: 'integer', minimum: 1, maximum: 10, description: 'Niveau de réparation (1-10)' },
+                        budget: { type: 'number', description: 'Calculé automatiquement: prix_par_m2 * niveau * surface_m2' },
                         entreprise: { type: 'string' },
                         date_nouveau: { type: 'string', format: 'date-time' },
                         date_en_cours: { type: 'string', format: 'date-time' },
@@ -100,7 +101,7 @@ const options = {
                         latitude: { type: 'number', example: -18.9100 },
                         longitude: { type: 'number', example: 47.5250 },
                         surface_m2: { type: 'number', example: 15.5 },
-                        budget: { type: 'number', example: 2500000 },
+                        niveau: { type: 'integer', minimum: 1, maximum: 10, example: 3, description: 'Niveau de réparation (1-10)' },
                         entreprise: { type: 'string', example: 'COLAS Madagascar' },
                         user_id: { type: 'string', format: 'uuid' }
                     }
@@ -112,7 +113,7 @@ const options = {
                         description: { type: 'string' },
                         statut: { type: 'string', enum: ['NOUVEAU', 'EN_COURS', 'TERMINE'] },
                         surface_m2: { type: 'number' },
-                        budget: { type: 'number' },
+                        niveau: { type: 'integer', minimum: 1, maximum: 10, description: 'Niveau de réparation (1-10). Le budget sera recalculé automatiquement.' },
                         entreprise: { type: 'string' },
                         user_id_modifier: { type: 'string', format: 'uuid' }
                     }

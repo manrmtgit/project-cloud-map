@@ -59,10 +59,10 @@ const StatsPanel = ({ stats, loading, formatBudget }) => {
           <div className="progress-bar">
             <div 
               className="progress-fill" 
-              style={{ width: `${stats.avancement_pourcentage}%` }}
+              style={{ width: `${stats.avancement_global || 0}%` }}
             ></div>
           </div>
-          <span className="progress-text">{stats.avancement_pourcentage}%</span>
+          <span className="progress-text">{stats.avancement_global || 0}%</span>
         </div>
       </div>
 

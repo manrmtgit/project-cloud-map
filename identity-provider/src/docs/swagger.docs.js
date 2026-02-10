@@ -19,6 +19,8 @@
  *     description: Statistiques et tableaux de bord
  *   - name: Notifications
  *     description: Gestion des notifications
+ *   - name: Paramètres
+ *     description: Configuration du backoffice (prix_par_m2, etc.)
  */
 
 /**
@@ -483,6 +485,7 @@
  *       - NOUVEAU → 0%
  *       - EN_COURS → 50% (date_en_cours renseignée)
  *       - TERMINE → 100% (date_termine renseignée)
+ *       Le budget est calculé automatiquement : prix_par_m2 × niveau × surface_m2
  *     tags: [Signalements]
  *     security:
  *       - bearerAuth: []
@@ -647,4 +650,60 @@
  *     responses:
  *       200:
  *         description: Toutes les notifications marquées comme lues
+ */
+
+// ===================== SETTINGS ROUTES =====================
+
+/**
+ * @swagger
+ * /api/signalements/settings:
+ *   get:
+ *     summary: Obtenir les paramètres de configuration
+ *     description: Récupère les paramètres du backoffice, notamment le prix_par_m2 utilisé pour le calcul automatique des budgets
+ *     tags: [Paramètres]
+ *     responses:
+ *       200:
+ *         description: Paramètres de configuration
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 settings:
+ *                   type: object
+ *                 prix_par_m2:
+ *                   type: number
+ *                   example: 50000
+ *   put:
+ *     summary: Mettre à jour un paramètre de configuration
+ *     description: |
+ *       Met à jour un paramètre du backoffice.
+ *       Si le prix_par_m2 est modifié, tous les budgets existants sont automatiquement recalculés
+ *       avec la formule : budget = prix_par_m2 * niveau * surface_m2
+ *     tags: [Paramètres]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [cle, valeur]
+ *             properties:
+ *               cle:
+ *                 type: string
+ *                 example: prix_par_m2
+ *               valeur:
+ *                 type: string
+ *                 example: "75000"
+ *     responses:
+ *       200:
+ *         description: Paramètre mis à jour
+ *       400:
+ *         description: Données invalides
+ *       401:
+ *         description: Non authentifié
  */

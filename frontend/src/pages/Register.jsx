@@ -5,7 +5,7 @@ import './Auth.css'
 
 const Register = () => {
   const [formData, setFormData] = useState({
-    username: '',
+    name: '',
     email: '',
     password: '',
     confirmPassword: ''
@@ -44,7 +44,7 @@ const Register = () => {
 
     try {
       await register({
-        username: formData.username,
+        name: formData.name,
         email: formData.email,
         password: formData.password
       })
@@ -72,14 +72,14 @@ const Register = () => {
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label htmlFor="username">Nom d'utilisateur</label>
+            <label htmlFor="name">Nom complet</label>
             <input
               type="text"
-              id="username"
-              name="username"
-              value={formData.username}
+              id="name"
+              name="name"
+              value={formData.name}
               onChange={handleChange}
-              placeholder="johndoe"
+              placeholder="Jean Dupont"
               required
             />
           </div>

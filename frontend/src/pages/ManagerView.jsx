@@ -27,6 +27,11 @@ const ManagerView = () => {
   const [detailedStats, setDetailedStats] = useState(null);
   const [showStatsPanel, setShowStatsPanel] = useState(false);
   
+  // État pour les paramètres (prix_par_m2)
+  const [prixParM2, setPrixParM2] = useState(50000);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [newPrixParM2, setNewPrixParM2] = useState('');
+  
   // État pour les notifications
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -41,7 +46,7 @@ const ManagerView = () => {
     latitude: '',
     longitude: '',
     surface_m2: '',
-    budget: '',
+    niveau: 1,
     entreprise: ''
   });
   const [addPhotos, setAddPhotos] = useState([]);
@@ -52,10 +57,23 @@ const ManagerView = () => {
   useEffect(() => {
     loadSignalements();
     loadDetailedStats();
+    loadSettings();
     if (user?.id) {
       loadNotifications();
     }
   }, [user]);
+
+  const loadSettings = async () => {
+    try {
+      const data = await signalementService.getSettings();
+      if (data.prix_par_m2) {
+        setPrixParM2(data.prix_par_m2);
+        setNewPrixParM2(String(data.prix_par_m2));
+      }
+    } catch (error) {
+      console.error('Erreur chargement paramètres:', error);
+    }
+  };
 
   const loadSignalements = async () => {
     try {
@@ -99,11 +117,30 @@ const ManagerView = () => {
     }
   };
 
+  const handleSaveSettings = async () => {
+    try {
+      const val = parseFloat(newPrixParM2);
+      if (isNaN(val) || val <= 0) {
+        alert('Veuillez entrer un prix valide');
+        return;
+      }
+      await signalementService.updateSettings('prix_par_m2', String(val));
+      setPrixParM2(val);
+      setShowSettingsModal(false);
+      await loadSignalements(); // Recharger car les budgets ont été recalculés
+      alert('Prix par m² mis à jour ! Tous les budgets ont été recalculés.');
+    } catch (error) {
+      console.error('Erreur mise à jour paramètres:', error);
+      alert('Erreur lors de la mise à jour');
+    }
+  };
+
   const handleSync = async () => {
     setSyncing(true);
     try {
       await loadSignalements();
       await loadDetailedStats();
+      await loadSettings();
       if (user?.id) await loadNotifications();
       alert('Synchronisation réussie !');
     } catch (error) {
@@ -120,7 +157,7 @@ const ManagerView = () => {
       description: signalement.description,
       statut: signalement.statut,
       surface_m2: signalement.surface_m2 || '',
-      budget: signalement.budget || '',
+      niveau: signalement.niveau || 1,
       entreprise: signalement.entreprise || ''
     });
     setEditMode(true);
@@ -130,6 +167,7 @@ const ManagerView = () => {
     try {
       await signalementService.update(selectedSignalement.id, {
         ...editData,
+        niveau: parseInt(editData.niveau) || 1,
         user_id_modifier: user?.id
       });
       await loadSignalements();
@@ -249,7 +287,7 @@ const ManagerView = () => {
         latitude: parseFloat(addFormData.latitude),
         longitude: parseFloat(addFormData.longitude),
         surface_m2: addFormData.surface_m2 ? parseFloat(addFormData.surface_m2) : null,
-        budget: addFormData.budget ? parseFloat(addFormData.budget) : null,
+        niveau: parseInt(addFormData.niveau) || 1,
         user_id: user?.id
       });
       
@@ -266,7 +304,7 @@ const ManagerView = () => {
         latitude: '',
         longitude: '',
         surface_m2: '',
-        budget: '',
+        niveau: 1,
         entreprise: ''
       });
       setAddPhotos([]);
@@ -332,6 +370,12 @@ const ManagerView = () => {
           >
             ➕ Nouveau signalement
           </button>
+          <button
+            className="btn-settings"
+            onClick={() => { setNewPrixParM2(String(prixParM2)); setShowSettingsModal(true); }}
+          >
+            ⚙️ Prix/m²: {prixParM2.toLocaleString()} Ar
+          </button>
           <Link to="/stats" className="btn-stats-page">
             📊 Statistiques
           </Link>
@@ -379,6 +423,37 @@ const ManagerView = () => {
                 </div>
               ))
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Modal paramètres prix_par_m2 */}
+      {showSettingsModal && (
+        <div className="modal-overlay" onClick={() => setShowSettingsModal(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{maxWidth: '400px'}}>
+            <div className="modal-header">
+              <h2>⚙️ Paramètres du backoffice</h2>
+              <button className="btn-close" onClick={() => setShowSettingsModal(false)}>✕</button>
+            </div>
+            <div style={{padding: '25px'}}>
+              <div className="form-group">
+                <label>Prix forfaitaire par m² (Ariary)</label>
+                <input
+                  type="number"
+                  value={newPrixParM2}
+                  onChange={(e) => setNewPrixParM2(e.target.value)}
+                  placeholder="50000"
+                  min="1"
+                />
+                <small style={{color: '#888', marginTop: '8px', display: 'block'}}>
+                  Formule: budget = prix_par_m² × niveau × surface_m²
+                </small>
+              </div>
+              <div className="form-actions">
+                <button className="btn-cancel" onClick={() => setShowSettingsModal(false)}>Annuler</button>
+                <button className="btn-save" onClick={handleSaveSettings}>💾 Enregistrer</button>
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -535,15 +610,24 @@ const ManagerView = () => {
                   />
                 </div>
                 <div className="form-group">
-                  <label>Budget (Ar)</label>
+                  <label>Niveau de réparation (1-10)</label>
                   <input
                     type="number"
-                    value={addFormData.budget}
-                    onChange={(e) => setAddFormData({...addFormData, budget: e.target.value})}
-                    placeholder="Ex: 5000000"
+                    min="1"
+                    max="10"
+                    value={addFormData.niveau}
+                    onChange={(e) => setAddFormData({...addFormData, niveau: Math.min(10, Math.max(1, parseInt(e.target.value) || 1))})}
+                    placeholder="1-10"
                   />
                 </div>
               </div>
+
+              {addFormData.surface_m2 && addFormData.niveau && (
+                <div className="budget-preview">
+                  💰 Budget estimé : <strong>{(prixParM2 * (parseInt(addFormData.niveau) || 1) * parseFloat(addFormData.surface_m2 || 0)).toLocaleString()} Ar</strong>
+                  <small> (prix/m² : {prixParM2.toLocaleString()} × niveau {addFormData.niveau} × {addFormData.surface_m2} m²)</small>
+                </div>
+              )}
 
               <div className="form-group">
                 <label>Entreprise assignée</label>
@@ -625,10 +709,12 @@ const ManagerView = () => {
                   <span className="card-avancement">{s.avancement || getAvancement(s.statut)}%</span>
                   {getStatusBadge(s.statut)}
                 </div>
+                <h4 className="card-title">{s.titre}</h4>
                 <p className="card-description">{s.description}</p>
                 <div className="card-meta">
-                  <span>📅 {formatDate(s.date_signalement)}</span>
-                  {s.surface && <span>📐 {s.surface} m²</span>}
+                  <span>📅 {formatDate(s.date_creation)}</span>
+                  {s.surface_m2 && <span>📐 {s.surface_m2} m²</span>}
+                  {s.niveau && <span>🔧 Niv.{s.niveau}</span>}
                 </div>
               </div>
             ))}
@@ -676,14 +762,23 @@ const ManagerView = () => {
                     />
                   </div>
                   <div className="form-group">
-                    <label>Budget (Ar)</label>
+                    <label>Niveau de réparation (1-10)</label>
                     <input
                       type="number"
-                      value={editData.budget || ''}
-                      onChange={(e) => setEditData({...editData, budget: e.target.value})}
+                      min="1"
+                      max="10"
+                      value={editData.niveau || 1}
+                      onChange={(e) => setEditData({...editData, niveau: Math.min(10, Math.max(1, parseInt(e.target.value) || 1))})}
                     />
                   </div>
                 </div>
+
+                {editData.surface_m2 && editData.niveau && (
+                  <div className="budget-preview">
+                    💰 Budget calculé : <strong>{(prixParM2 * (parseInt(editData.niveau) || 1) * parseFloat(editData.surface_m2 || 0)).toLocaleString()} Ar</strong>
+                    <small> (prix/m² : {prixParM2.toLocaleString()} × niveau {editData.niveau} × {editData.surface_m2} m²)</small>
+                  </div>
+                )
 
                 <div className="form-group">
                   <label>Entreprise assignée</label>
@@ -745,6 +840,10 @@ const ManagerView = () => {
                   <div className="detail-item">
                     <span className="label">📊 Avancement</span>
                     <span className="value avancement-badge">{selectedSignalement.avancement || getAvancement(selectedSignalement.statut)}%</span>
+                  </div>
+                  <div className="detail-item">
+                    <span className="label">🔧 Niveau</span>
+                    <span className="value">{selectedSignalement.niveau || 1} / 10</span>
                   </div>
                 </div>
 

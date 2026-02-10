@@ -35,11 +35,13 @@ router.get('/', signalementController.getAllSignalements);
 router.get('/stats', signalementController.getStats);
 router.get('/stats/detailed', signalementController.getDetailedStats);
 router.get('/suggest-coordinates', signalementController.suggestCoordinates);
+router.get('/settings', signalementController.getSettings);
 router.get('/:id', signalementController.getSignalementById);
 router.get('/:id/photos', signalementController.getPhotos);
 
 // Routes protégées (authentification requise - écriture)
 router.post('/', authMiddleware, signalementController.createSignalement);
+router.put('/settings', authMiddleware, signalementController.updateSettings);
 router.put('/:id', authMiddleware, signalementController.updateSignalement);
 router.delete('/:id', authMiddleware, signalementController.deleteSignalement);
 

@@ -10,7 +10,7 @@ const getAllSignalements = async (req, res) => {
         let query = `
             SELECT 
                 s.id, s.titre, s.description, s.latitude, s.longitude, 
-                s.statut, s.avancement, s.surface_m2, s.budget, s.entreprise,
+                s.statut, s.avancement, s.surface_m2, s.niveau, s.budget, s.entreprise,
                 s.user_id, s.date_nouveau, s.date_en_cours, s.date_termine,
                 s.date_creation, s.date_mise_a_jour,
                 COALESCE(
@@ -143,7 +143,7 @@ const getSignalementById = async (req, res) => {
         const query = `
             SELECT 
                 s.id, s.titre, s.description, s.latitude, s.longitude, 
-                s.statut, s.avancement, s.surface_m2, s.budget, s.entreprise,
+                s.statut, s.avancement, s.surface_m2, s.niveau, s.budget, s.entreprise,
                 s.user_id, s.date_nouveau, s.date_en_cours, s.date_termine,
                 s.date_creation, s.date_mise_a_jour,
                 COALESCE(
@@ -183,7 +183,7 @@ const getSignalementById = async (req, res) => {
 // Créer un signalement
 const createSignalement = async (req, res) => {
     try {
-        const { titre, description, latitude, longitude, surface_m2, budget, entreprise, user_id } = req.body;
+        const { titre, description, latitude, longitude, surface_m2, entreprise, user_id, niveau } = req.body;
         
         if (!titre || !latitude || !longitude) {
             return res.status(400).json({ 
@@ -191,15 +191,25 @@ const createSignalement = async (req, res) => {
                 message: 'Titre, latitude et longitude sont requis' 
             });
         }
+
+        const niveauValue = niveau ? Math.min(10, Math.max(1, parseInt(niveau))) : 1;
+        
+        // Auto-calculer le budget : prix_par_m2 * niveau * surface_m2
+        let calculatedBudget = null;
+        if (surface_m2 && niveauValue) {
+            const paramResult = await pool.query("SELECT valeur FROM parametres WHERE cle = 'prix_par_m2'");
+            const prixParM2 = paramResult.rows.length > 0 ? parseFloat(paramResult.rows[0].valeur) : 50000;
+            calculatedBudget = prixParM2 * niveauValue * parseFloat(surface_m2);
+        }
         
         const query = `
-            INSERT INTO signalements (titre, description, latitude, longitude, surface_m2, budget, entreprise, user_id, statut, avancement, date_nouveau)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'NOUVEAU', 0, NOW())
+            INSERT INTO signalements (titre, description, latitude, longitude, surface_m2, niveau, budget, entreprise, user_id, statut, avancement, date_nouveau)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'NOUVEAU', 0, NOW())
             RETURNING *
         `;
         
         const result = await pool.query(query, [
-            titre, description, latitude, longitude, surface_m2, budget, entreprise, user_id || null
+            titre, description, latitude, longitude, surface_m2, niveauValue, calculatedBudget, entreprise, user_id || null
         ]);
         
         res.status(201).json({
@@ -220,15 +230,27 @@ const createSignalement = async (req, res) => {
 const updateSignalement = async (req, res) => {
     try {
         const { id } = req.params;
-        const { titre, description, statut, surface_m2, budget, entreprise, user_id_modifier } = req.body;
+        const { titre, description, statut, surface_m2, entreprise, user_id_modifier, niveau } = req.body;
         
-        // Récupérer l'ancien statut pour la notification
-        const oldResult = await pool.query('SELECT statut, user_id FROM signalements WHERE id = $1', [id]);
+        // Récupérer l'ancien signalement
+        const oldResult = await pool.query('SELECT statut, user_id, surface_m2, niveau FROM signalements WHERE id = $1', [id]);
         if (oldResult.rows.length === 0) {
             return res.status(404).json({ success: false, message: 'Signalement non trouvé' });
         }
         const oldStatut = oldResult.rows[0].statut;
         const signalementUserId = oldResult.rows[0].user_id;
+        
+        // Déterminer le niveau et la surface finale
+        const finalNiveau = niveau !== undefined ? Math.min(10, Math.max(1, parseInt(niveau))) : oldResult.rows[0].niveau;
+        const finalSurface = surface_m2 !== undefined ? parseFloat(surface_m2) : parseFloat(oldResult.rows[0].surface_m2);
+        
+        // Auto-calculer le budget : prix_par_m2 * niveau * surface_m2
+        let calculatedBudget = null;
+        if (finalSurface && finalNiveau) {
+            const paramResult = await pool.query("SELECT valeur FROM parametres WHERE cle = 'prix_par_m2'");
+            const prixParM2 = paramResult.rows.length > 0 ? parseFloat(paramResult.rows[0].valeur) : 50000;
+            calculatedBudget = prixParM2 * finalNiveau * finalSurface;
+        }
         
         // Calculer l'avancement et les dates selon le statut
         let avancement = 0;
@@ -252,15 +274,16 @@ const updateSignalement = async (req, res) => {
                 statut = COALESCE($3, statut),
                 avancement = $4,
                 surface_m2 = COALESCE($5, surface_m2),
-                budget = COALESCE($6, budget),
-                entreprise = COALESCE($7, entreprise)
+                budget = $6,
+                entreprise = COALESCE($7, entreprise),
+                niveau = $8
                 ${dateUpdate}
-            WHERE id = $8
+            WHERE id = $9
             RETURNING *
         `;
         
         const result = await pool.query(query, [
-            titre, description, statut, avancement, surface_m2, budget, entreprise, id
+            titre, description, statut, avancement, surface_m2, calculatedBudget, entreprise, finalNiveau, id
         ]);
         
         // Créer une notification si le statut a changé
@@ -569,6 +592,69 @@ const getDetailedStats = async (req, res) => {
     }
 };
 
+// Récupérer les paramètres (prix_par_m2, etc.)
+const getSettings = async (req, res) => {
+    try {
+        const result = await pool.query('SELECT cle, valeur, description, date_modification FROM parametres ORDER BY cle');
+        
+        // Transformer en objet clé-valeur
+        const settings = {};
+        result.rows.forEach(row => {
+            settings[row.cle] = {
+                valeur: row.valeur,
+                description: row.description,
+                date_modification: row.date_modification
+            };
+        });
+
+        res.json({
+            success: true,
+            settings,
+            prix_par_m2: parseFloat(settings.prix_par_m2?.valeur || '50000')
+        });
+    } catch (error) {
+        console.error('Erreur getSettings:', error);
+        res.status(500).json({ success: false, message: 'Erreur lors de la récupération des paramètres' });
+    }
+};
+
+// Mettre à jour un paramètre (ex: prix_par_m2)
+const updateSettings = async (req, res) => {
+    try {
+        const { cle, valeur } = req.body;
+        
+        if (!cle || valeur === undefined) {
+            return res.status(400).json({ success: false, message: 'Clé et valeur sont requises' });
+        }
+        
+        const result = await pool.query(
+            `INSERT INTO parametres (cle, valeur, date_modification) 
+             VALUES ($1, $2, NOW()) 
+             ON CONFLICT (cle) DO UPDATE SET valeur = $2, date_modification = NOW()
+             RETURNING *`,
+            [cle, String(valeur)]
+        );
+
+        // Si on change le prix_par_m2, recalculer tous les budgets existants
+        if (cle === 'prix_par_m2') {
+            const newPrix = parseFloat(valeur);
+            await pool.query(
+                `UPDATE signalements SET budget = $1 * niveau * surface_m2 WHERE surface_m2 IS NOT NULL AND niveau IS NOT NULL`,
+                [newPrix]
+            );
+        }
+        
+        res.json({
+            success: true,
+            message: `Paramètre '${cle}' mis à jour`,
+            parametre: result.rows[0]
+        });
+    } catch (error) {
+        console.error('Erreur updateSettings:', error);
+        res.status(500).json({ success: false, message: 'Erreur lors de la mise à jour du paramètre' });
+    }
+};
+
 module.exports = {
     getAllSignalements,
     getStats,
@@ -583,5 +669,7 @@ module.exports = {
     deletePhoto,
     getNotifications,
     markNotificationRead,
-    markAllNotificationsRead
+    markAllNotificationsRead,
+    getSettings,
+    updateSettings
 };

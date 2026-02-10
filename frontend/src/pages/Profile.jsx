@@ -9,7 +9,7 @@ const Profile = () => {
   const navigate = useNavigate()
   
   const [formData, setFormData] = useState({
-    username: '',
+    name: '',
     email: ''
   })
   const [loading, setLoading] = useState(false)
@@ -22,7 +22,7 @@ const Profile = () => {
       try {
         const data = await userService.getProfile()
         setFormData({
-          username: data.user.username || '',
+          name: data.user.name || '',
           email: data.user.email || ''
         })
       } catch (err) {
@@ -72,7 +72,7 @@ const Profile = () => {
       <div className="profile-card">
         <div className="profile-header">
           <div className="profile-avatar">
-            {(user?.username || user?.email || 'U')[0].toUpperCase()}
+            {(user?.name || user?.email || 'U')[0].toUpperCase()}
           </div>
           <h1>Mon Profil</h1>
         </div>
@@ -82,12 +82,12 @@ const Profile = () => {
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label htmlFor="username">Nom d'utilisateur</label>
+            <label htmlFor="name">Nom</label>
             <input
               type="text"
-              id="username"
-              name="username"
-              value={formData.username}
+              id="name"
+              name="name"
+              value={formData.name}
               onChange={handleChange}
               required
             />
